@@ -1,0 +1,1 @@
+import{y as o}from"./index-DVkEsCDx.js";const s={login:t=>o.post("/auth/login",t),register:t=>o.post("/auth/register",t),profile:()=>o.get("/auth/profile"),updateProfile:t=>o.put("/auth/profile",t),forgotPassword:t=>o.post("/auth/forgot-password",{email:t},{timeout:3e4}),resetPassword:t=>o.post("/auth/reset-password",t)};export{s as a};

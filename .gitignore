@@ -1,0 +1,7 @@
+/data/
+/bin/
+/release/
+/.env
+*.exe
+/web/node_modules/
+/web/dist/

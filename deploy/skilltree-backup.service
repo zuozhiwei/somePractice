@@ -1,0 +1,13 @@
+[Unit]
+Description=Skilltree online SQLite backup
+
+[Service]
+Type=oneshot
+User=skilltree
+Group=skilltree
+EnvironmentFile=/etc/skilltree.env
+ExecStart=/opt/skilltree/backup.sh
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/skilltree

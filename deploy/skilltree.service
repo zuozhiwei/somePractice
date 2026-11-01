@@ -1,0 +1,20 @@
+[Unit]
+Description=Skilltree Go service
+After=network.target
+
+[Service]
+Type=simple
+User=skilltree
+Group=skilltree
+WorkingDirectory=/opt/skilltree
+EnvironmentFile=/etc/skilltree.env
+ExecStart=/opt/skilltree/skilltree
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/skilltree
+
+[Install]
+WantedBy=multi-user.target
