@@ -1,0 +1,8 @@
+[Unit]
+Description=Renew Skilltree HTTPS certificate
+After=network-online.target nginx.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/skilltree-certbot/bin/certbot renew --quiet --deploy-hook "systemctl reload nginx"
