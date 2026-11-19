@@ -246,7 +246,7 @@ func (a *App) forgotPassword(w http.ResponseWriter, r *http.Request) {
 	if port == "" {
 		port = "587"
 	}
-	err = sendResetMail(host, port, user, pass, x.Email, code, &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12})
+	err = sendResetMail(host, port, user, pass, x.Email, code, &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}, port == "465")
 	if err != nil {
 		a.resetMu.Lock()
 		delete(a.resets, x.Email)
@@ -257,51 +257,54 @@ func (a *App) forgotPassword(w http.ResponseWriter, r *http.Request) {
 	ok(w, nil)
 }
 
-func sendResetMail(host, port, user, pass, email, code string, tlsConfig *tls.Config) error {
+func sendResetMail(host, port, user, pass, email, code string, tlsConfig *tls.Config, implicitTLS bool) error {
 	addr := net.JoinHostPort(host, port)
 	conn, err := net.DialTimeout("tcp", addr, 10*time.Second)
-	var c *smtp.Client
-	if err == nil {
-		_ = conn.SetDeadline(time.Now().Add(20 * time.Second))
-		c, err = smtp.NewClient(conn, host)
-		if err != nil {
-			_ = conn.Close()
-		}
+	if err != nil {
+		return err
 	}
-	if err == nil {
-		defer c.Close()
+	defer conn.Close()
+	if err := conn.SetDeadline(time.Now().Add(20 * time.Second)); err != nil {
+		return err
+	}
+	if implicitTLS {
+		conn = tls.Client(conn, tlsConfig)
+	}
+	c, err := smtp.NewClient(conn, host)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+	if !implicitTLS {
 		if ok, _ := c.Extension("STARTTLS"); !ok {
-			err = fmt.Errorf("STARTTLS unavailable")
-		} else {
-			err = c.StartTLS(tlsConfig)
+			return fmt.Errorf("STARTTLS unavailable")
 		}
-		if err == nil {
-			err = c.Auth(smtp.PlainAuth("", user, pass, host))
-		}
-		if err == nil {
-			err = c.Mail(user)
-		}
-		if err == nil {
-			err = c.Rcpt(email)
-		}
-		if err == nil {
-			var wr interface {
-				Write([]byte) (int, error)
-				Close() error
-			}
-			wr, err = c.Data()
-			if err == nil {
-				_, err = wr.Write([]byte("From: " + user + "\r\nTo: " + email + "\r\nSubject: Skilltree password reset\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nCode: " + code + " (valid for 5 minutes)\r\n"))
-				if e := wr.Close(); err == nil {
-					err = e
-				}
-			}
-		}
-		if err == nil {
-			err = c.Quit()
+		if err = c.StartTLS(tlsConfig); err != nil {
+			return err
 		}
 	}
-	return err
+	if err = c.Auth(smtp.PlainAuth("", user, pass, host)); err != nil {
+		return err
+	}
+	if err = c.Mail(user); err != nil {
+		return err
+	}
+	if err = c.Rcpt(email); err != nil {
+		return err
+	}
+	wr, err := c.Data()
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(wr, "From: %s\r\nTo: %s\r\nSubject: Skilltree password reset\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nCode: %s (valid for 5 minutes)\r\n", user, email, code)
+	if err != nil {
+		return err
+	}
+	if err = wr.Close(); err != nil {
+		return err
+	}
+	_ = c.Quit()
+	return nil
 }
 func (a *App) resetPassword(w http.ResponseWriter, r *http.Request) {
 	if !a.allowAttempt("reset-confirm:"+clientIP(r), 100) {

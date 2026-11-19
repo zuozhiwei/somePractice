@@ -30,7 +30,7 @@
    - `SKILLTREE_JWT_SECRET`：Base64 编码、解码后至少 32 字节。继续使用旧登录态及旧的加密邀请链接时，应通过安全渠道使用旧系统相同密钥；明文师父 ID 的旧邀请链接出于权限保护已停止支持，需重新生成。
    - `SKILLTREE_TIMEZONE=UTC`：本次旧生产环境 `LocalDateTime` 使用 UTC，迁移保留原值；如果实际源系统时区不同，应在部署前更正。
    - `QINIU_ACCESS_KEY`、`QINIU_SECRET_KEY`、`QINIU_BUCKET`、`QINIU_DOMAIN` 和上传区域对应的 `QINIU_UPLOAD_HOST`：供上传及私有文件签名使用。
-   - `DEEPSEEK_API_KEY`、可选 `DEEPSEEK_MODEL`：供 AI 审核使用；`SMTP_HOST`、`SMTP_PORT`、`SMTP_USERNAME`、`SMTP_PASSWORD`：供密码重置使用。缺失时对应功能返回明确错误，其他功能仍可使用。SMTP 要求 STARTTLS。
+   - `DEEPSEEK_API_KEY`、可选 `DEEPSEEK_MODEL`：供 AI 审核使用；`SMTP_HOST`、`SMTP_PORT`、`SMTP_USERNAME`、`SMTP_PASSWORD`：供密码重置使用。SMTP 的 465 端口在连接时直接启用 TLS，其他端口要求 STARTTLS（默认 587）。阿里邮箱可使用 `smtp.qiye.aliyun.com:465` 和三方客户端安全密码。缺失配置时对应功能返回明确错误，其他功能仍可使用。
 3. 以 root 运行 `sh deploy/install.sh`。脚本创建专用服务用户、安装文件、启动 `skilltree.service` 和每日备份 timer；不会自动从旧系统迁移数据库。
 4. `systemctl status skilltree` 查看服务，`journalctl -u skilltree -f` 查看日志；用 `curl http://127.0.0.1:8081/healthz` 检查健康状态。默认只监听本机；局域网直连可设置 `SKILLTREE_LISTEN=0.0.0.0:8081` 并配置防火墙。公网访问应配置域名及 HTTPS 反向代理，代理需支持 WebSocket；不要把明文 HTTP 暴露到公网。
 
@@ -47,4 +47,4 @@ go test ./...
 go vet ./...
 ```
 
-`tests/systemd-smoke.sh` 使用临时合成数据在 Linux 用户级 systemd 中验证注册、学习、审核、重启和备份。`tests/systemd-load.sh` 接收一个离线数据库副本，复制后执行 30 并发的读取测试；不要传入运行中的数据库文件。七牛和 AI 已有本地模拟接口测试，邮件有本地 STARTTLS 模拟测试；正式上线前仍需使用实际服务配置验证连通性和权限。
+`tests/systemd-smoke.sh` 使用临时合成数据在 Linux 用户级 systemd 中验证注册、学习、审核、重启和备份。`tests/systemd-load.sh` 接收一个离线数据库副本，复制后执行 30 并发的读取测试；不要传入运行中的数据库文件。七牛和 AI 已有本地模拟接口测试，邮件有直接 TLS 和 STARTTLS 测试；正式上线前仍需使用实际服务配置验证连通性和权限。
