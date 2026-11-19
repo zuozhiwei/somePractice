@@ -9,9 +9,9 @@ const routes = [
   { path: '/forgot-password', component: () => import('../views/ForgotPassword.vue'), meta: { guest: true } },
   { path: '/learn', component: () => import('../views/LearnBoard.vue') },
   // 三种展示形式已合并进 /learn，旧路由重定向
-  { path: '/map', redirect: '/learn' },
-  { path: '/world', redirect: '/learn' },
-  { path: '/skill-tree', redirect: '/learn' },
+  { path: '/map', redirect: to => ({ path: '/learn', query: { ...to.query, view: 'story' } }) },
+  { path: '/world', redirect: to => ({ path: '/learn', query: { ...to.query, view: 'world' } }) },
+  { path: '/skill-tree', redirect: to => ({ path: '/learn', query: { ...to.query, view: 'tree' } }) },
   { path: '/skill/:id', redirect: to => `/level/${to.params.id}` },
   { path: '/map/:mapId', component: () => import('../views/MapDetail.vue') },
   { path: '/level/:id', component: () => import('../views/LevelDetail.vue') },

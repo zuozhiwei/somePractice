@@ -77,6 +77,67 @@ func loginToken(t *testing.T, h http.Handler) string {
 	}
 	return response.Data.Token
 }
+
+func TestExpeditionCurrentLevelAndTaskCounts(t *testing.T) {
+	db, h := testApp(t)
+	token := loginToken(t, h)
+	_, err := db.Exec(`
+		INSERT INTO maps(id,is_builtin,name,order_index) VALUES(9,0,'Empty chapter',0);
+		UPDATE levels SET map_id=1,order_index=0 WHERE id=2;
+		INSERT INTO user_task_submissions(user_id,task_id,status,ai_review_count)
+		  VALUES(1,1,'APPROVED',0),(1,1,'APPROVED',0),(1,2,'PENDING',0)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var summary struct {
+		Data struct {
+			CurrentMapID int
+			Maps         []struct{ ID, CurrentLevelID int }
+		}
+	}
+	response := call(h, "GET", "/api/maps/progress", "", token)
+	if json.Unmarshal(response.Body.Bytes(), &summary) != nil || summary.Data.CurrentMapID != 1 ||
+		len(summary.Data.Maps) != 3 || summary.Data.Maps[1].ID != 1 || summary.Data.Maps[1].CurrentLevelID != 1 {
+		t.Fatalf("wrong starting chapter or level: %s", response.Body)
+	}
+	var detail struct {
+		Data struct {
+			Levels []struct{ ID, TaskTotal, TaskDone int }
+		}
+	}
+	response = call(h, "GET", "/api/maps/1", "", token)
+	if json.Unmarshal(response.Body.Bytes(), &detail) != nil || len(detail.Data.Levels) != 2 {
+		t.Fatalf("map detail: %s", response.Body)
+	}
+	for _, lv := range detail.Data.Levels {
+		if lv.TaskTotal != 1 || (lv.ID == 1 && lv.TaskDone != 1) || (lv.ID == 2 && lv.TaskDone != 0) {
+			t.Fatalf("incorrect task count: %+v", lv)
+		}
+	}
+}
+
+func TestIndependentChapterIsPlayableFromMapAndDetail(t *testing.T) {
+	db, h := testApp(t)
+	token := loginToken(t, h)
+	if _, err := db.Exec("UPDATE levels SET prerequisite_level_ids='[]' WHERE id=2"); err != nil {
+		t.Fatal(err)
+	}
+	response := call(h, "GET", "/api/maps/2", "", token)
+	var detail struct {
+		Data struct {
+			Status string
+			Levels []struct{ Status string }
+		}
+	}
+	if json.Unmarshal(response.Body.Bytes(), &detail) != nil || detail.Data.Status != "IN_PROGRESS" ||
+		len(detail.Data.Levels) != 1 || detail.Data.Levels[0].Status != "LEARNING" {
+		t.Fatalf("independent chapter was locked: %s", response.Body)
+	}
+	if response := call(h, "GET", "/api/levels/2", "", token); response.Code != 200 {
+		t.Fatalf("independent level: %s", response.Body)
+	}
+}
+
 func TestLoginAndLearningFlow(t *testing.T) {
 	db, h := testApp(t)
 	if w := call(h, "POST", "/api/auth/login", `{"username":"alice","password":"bad"}`, ""); w.Code != 400 {

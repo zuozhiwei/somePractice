@@ -4,7 +4,7 @@
       <div class="page-title-row">
         <div>
           <div class="crumb">
-            <span class="crumb-link" @click="$router.push('/map')">📖 冒险之旅</span>
+            <router-link class="crumb-link" to="/learn">学习地图</router-link>
             <span class="crumb-sep">/</span>
             <span>{{ map.icon }} {{ map.name }}</span>
           </div>
@@ -12,7 +12,7 @@
             <h1 class="page-title">{{ map.name }}</h1>
             <el-tag :type="map.status === 'COMPLETED' ? 'success' : map.status === 'LOCKED' ? 'info' : 'primary'"
                     size="small" effect="light">
-              {{ map.status === 'COMPLETED' ? '✅ 已通关' : map.status === 'LOCKED' ? '🔒 未解锁' : '🚀 进行中' }}
+              {{ map.status === 'COMPLETED' ? '已通关' : map.status === 'LOCKED' ? '未解锁' : '进行中' }}
             </el-tag>
             <el-tag size="small" effect="plain">{{ map.levelsCompleted }}/{{ map.totalLevels }} 关</el-tag>
           </div>
@@ -24,21 +24,21 @@
       </div>
 
       <!-- Story banner -->
-      <div class="story-banner">
-        <div class="story-label">📜 区域故事</div>
-        <div class="story-text">{{ map.story }}</div>
+      <div class="story-banner" v-if="map.story || map.description">
+        <div class="story-label">章节故事</div>
+        <div class="story-text">{{ map.story || map.description }}</div>
       </div>
 
       <!-- Mentor NPC -->
       <div class="mentor-card">
-        <div class="mentor-avatar">🧙</div>
+        <div class="mentor-avatar">师</div>
         <div class="mentor-body">
           <div class="mentor-name">领路人 · 师父</div>
           <div class="mentor-dialog" :class="{ typing: mentorLoading }">{{ mentorLoading ? '……' : mentor?.content }}</div>
         </div>
         <div class="mentor-actions" v-if="mentor">
           <span v-if="mentor.graduated" class="mentor-badge done">🎉 你已出师！</span>
-          <span v-else-if="mentor.mapCompleted" class="mentor-badge done">✅ 本区域已通关</span>
+          <span v-else-if="mentor.mapCompleted" class="mentor-badge done">本区域已通关</span>
           <span v-else-if="mentor.currentLevelName" class="mentor-badge">▶ 下一关：{{ mentor.currentLevelName }}</span>
           <el-button size="small" round @click="fetchMentor" :loading="mentorLoading">再说两句</el-button>
         </div>
@@ -46,7 +46,7 @@
 
       <!-- Level list -->
       <div class="level-list" v-if="map.levels?.length">
-        <div v-for="lv in map.levels" :key="lv.id" class="level-card"
+        <div v-for="lv in map.levels" :key="lv.id" class="level-card" role="button" tabindex="0" @keydown.enter.prevent="goLevel(lv)" @keydown.space.prevent="goLevel(lv)"
              :class="{ locked: lv.status === 'LOCKED', completed: lv.status === 'COMPLETED' }"
              @click="goLevel(lv)">
           <div class="level-num" :class="{ done: lv.status === 'COMPLETED' }">
@@ -61,9 +61,9 @@
             <div class="level-desc">{{ lv.description }}</div>
             <div class="level-bottom">
               <span class="level-status" :class="lv.status.toLowerCase()">
-                <template v-if="lv.status === 'LOCKED'">🔒 未解锁</template>
-                <template v-else-if="lv.status === 'COMPLETED'">✅ 已通关</template>
-                <template v-else>🚀 挑战中</template>
+                <template v-if="lv.status === 'LOCKED'">未解锁</template>
+                <template v-else-if="lv.status === 'COMPLETED'">已通关</template>
+                <template v-else>挑战中</template>
               </span>
               <span class="level-tasks">{{ lv.taskDone }}/{{ lv.taskTotal }} 任务</span>
             </div>
@@ -137,21 +137,21 @@ onMounted(async () => {
 
 .crumb { font-size: 13px; color: var(--color-text-secondary); margin-bottom: 8px; }
 .crumb-link { cursor: pointer; }
-.crumb-link:hover { color: #6366f1; }
-.crumb-sep { margin: 0 6px; color: #cbd5e1; }
+.crumb-link:hover { color: #216354; }
+.crumb-sep { margin: 0 6px; color: #bfcbbf; }
 
 .title-line { display: flex; align-items: center; gap: 10px; }
 
 .story-banner {
-  background: linear-gradient(135deg, #1e1b4b, #312e81);
+  background: linear-gradient(135deg, #173a33, #274c43);
   border-radius: var(--radius);
   padding: 20px 24px;
-  color: #e0e7ff;
+  color: #dce7dc;
   margin-bottom: 20px;
   box-shadow: var(--shadow-md);
 }
-.story-label { font-size: 12px; font-weight: 700; letter-spacing: 2px; color: #a5b4fc; margin-bottom: 8px; }
-.story-text { font-size: 14px; line-height: 1.9; color: #c7d2fe; }
+.story-label { font-size: 12px; font-weight: 700; letter-spacing: 2px; color: #a0bfac; margin-bottom: 8px; }
+.story-text { font-size: 14px; line-height: 1.9; color: #bed2bf; }
 
 .mentor-card {
   display: flex; align-items: flex-start; gap: 14px;
@@ -164,21 +164,21 @@ onMounted(async () => {
 }
 .mentor-avatar {
   width: 48px; height: 48px; border-radius: 50%;
-  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  background: linear-gradient(135deg, #d9a753, #bc8b3b);
   display: flex; align-items: center; justify-content: center;
-  font-size: 26px; flex-shrink: 0;
+  font-size: 18px; font-weight: 700; flex-shrink: 0;
 }
 .mentor-body { flex: 1; min-width: 0; }
 .mentor-name { font-size: 12px; font-weight: 700; color: #b45309; margin-bottom: 4px; }
 .mentor-dialog {
-  font-size: 14px; color: #475569; line-height: 1.7;
+  font-size: 14px; color: #3e5147; line-height: 1.7;
   background: #fffbeb; border: 1px solid #fde68a;
   border-radius: 0 12px 12px 12px; padding: 10px 14px;
 }
 .mentor-dialog.typing { color: #a16207; }
 .mentor-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0; }
-.mentor-badge { font-size: 12px; font-weight: 600; color: #6366f1; }
-.mentor-badge.done { color: #16a34a; }
+.mentor-badge { font-size: 12px; font-weight: 600; color: #216354; }
+.mentor-badge.done { color: #30684b; }
 
 .level-list { display: flex; flex-direction: column; gap: 14px; }
 
@@ -192,23 +192,23 @@ onMounted(async () => {
   transition: all .2s;
 }
 .level-card:hover { box-shadow: var(--shadow-md); transform: translateX(4px); }
-.level-card.locked { opacity: .55; cursor: not-allowed; }
+.level-card.locked { background: #f4f5ef; cursor: not-allowed; }
 .level-card.locked:hover { transform: none; box-shadow: var(--shadow-sm); }
-.level-card.completed { border-color: #86efac; background: linear-gradient(90deg, #f0fdf4, #ffffff); }
+.level-card.completed { border-color: #86efac; background: linear-gradient(90deg, #f0f6ed, #ffffff); }
 
 .level-num {
   width: 44px; height: 44px; border-radius: 12px;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  background: linear-gradient(135deg, #216354, #397c67);
   color: #fff; font-size: 17px; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
-.level-num.done { background: linear-gradient(135deg, #22c55e, #4ade80); }
+.level-num.done { background: linear-gradient(135deg, #3b825f, #74a785); }
 
 .level-main { flex: 1; min-width: 0; }
 .level-title-row { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
 .level-name { font-size: 15px; font-weight: 600; color: var(--color-text); }
-.level-xp { font-size: 12px; font-weight: 600; color: #d97706; background: #fef3c7; padding: 1px 8px; border-radius: 10px; }
+.level-xp { font-size: 12px; font-weight: 600; color: #895b19; background: #faf0d7; padding: 1px 8px; border-radius: 10px; }
 .level-desc {
   font-size: 13px; color: var(--color-text-secondary); line-height: 1.6;
   margin-bottom: 10px;
@@ -216,15 +216,28 @@ onMounted(async () => {
 }
 .level-bottom { display: flex; gap: 14px; margin-bottom: 8px; }
 .level-status { font-size: 12px; font-weight: 600; }
-.level-status.locked { color: #94a3b8; }
-.level-status.learning { color: #6366f1; }
-.level-status.completed { color: #16a34a; }
-.level-tasks { font-size: 12px; color: #94a3b8; }
+.level-status.locked { color: #667568; }
+.level-status.learning { color: #216354; }
+.level-status.completed { color: #30684b; }
+.level-tasks { font-size: 12px; color: #667568; }
 
-.level-progress-bar { height: 5px; background: #f1f5f9; border-radius: 3px; overflow: hidden; }
-.level-progress-fill { height: 100%; background: linear-gradient(90deg, #6366f1, #8b5cf6); border-radius: 3px; transition: width .4s; }
-.level-card.completed .level-progress-fill { background: linear-gradient(90deg, #22c55e, #4ade80); }
+.level-progress-bar { height: 5px; background: #edf0e9; border-radius: 3px; overflow: hidden; }
+.level-progress-fill { height: 100%; background: linear-gradient(90deg, #216354, #397c67); border-radius: 3px; transition: width .4s; }
+.level-card.completed .level-progress-fill { background: linear-gradient(90deg, #3b825f, #74a785); }
 
-.level-arrow { color: #cbd5e1; flex-shrink: 0; }
-.level-card:hover .level-arrow { color: #6366f1; }
+.level-arrow { color: #bfcbbf; flex-shrink: 0; }
+.level-card:hover .level-arrow { color: #216354; }
+
+.title-line,.level-title-row { flex-wrap: wrap; }
+.crumb-link { text-decoration: none; color: #446c56; }
+.crumb-link:hover { text-decoration: underline; }
+.mentor-avatar { background: #f0dfb0; color: #695424; }
+.level-card:focus-visible { outline: 3px solid #ac8a50; outline-offset: 2px; }
+@media(max-width:640px) {
+  .mentor-card { flex-wrap: wrap; }
+  .mentor-actions { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .level-card { gap: 10px; padding: 15px; }
+  .level-num { width: 34px; height: 34px; }
+  .page-title-row { gap: 8px; }
+}
 </style>

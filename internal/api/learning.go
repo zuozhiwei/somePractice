@@ -88,7 +88,7 @@ func (a *App) snapshot(r *http.Request, user int64) (snapshot, error) {
 	return s, rows.Err()
 }
 func (s snapshot) unlocked(l level) bool {
-	if s.teacher {
+	if s.teacher || s.progress[l.ID].Status == "COMPLETED" {
 		return true
 	}
 	for _, id := range l.Prereqs {
@@ -98,15 +98,27 @@ func (s snapshot) unlocked(l level) bool {
 	}
 	return true
 }
+
+func (s snapshot) prerequisiteNames(l level) []string {
+	names := make([]string, 0, len(l.Prereqs))
+	for _, id := range l.Prereqs {
+		if p, ok := s.byID[id]; ok {
+			names = append(names, p.Name)
+		} else {
+			names = append(names, "未知")
+		}
+	}
+	return names
+}
 func (s snapshot) levelStatus(l level) (string, int) {
+	if !s.unlocked(l) {
+		return "LOCKED", 0
+	}
 	p, has := s.progress[l.ID]
 	if has && p.Status != "LOCKED" {
 		return p.Status, p.Progress
 	}
-	if s.unlocked(l) {
-		return "LEARNING", 1
-	}
-	return "LOCKED", 0
+	return "LEARNING", 1
 }
 func (a *App) loadTasks(r *http.Request, levelID int64) ([]task, error) {
 	rows, err := a.DB.QueryContext(r.Context(), `SELECT id,title,description,acceptance_criteria,xp_reward,sort_order,ai_review_enabled,is_builtin,created_by,created_at,level_id FROM tasks WHERE level_id=? ORDER BY sort_order,id`, levelID)
@@ -158,7 +170,6 @@ func (a *App) summaries(r *http.Request, user int64, s snapshot) ([]map[string]a
 	}
 	defer rows.Close()
 	out := []map[string]any{}
-	prev := true
 	for rows.Next() {
 		var id int64
 		var name string
@@ -178,24 +189,19 @@ func (a *App) summaries(r *http.Request, user int64, s snapshot) ([]map[string]a
 			xp += p.XP
 			if p.Status == "COMPLETED" {
 				done++
-			} else if currentID == nil {
+			} else if currentID == nil && s.unlocked(l) {
 				currentID = l.ID
 				currentName = l.Name
 			}
 		}
 		complete := total > 0 && done == total
 		status := "IN_PROGRESS"
-		if !prev && !s.teacher {
-			status = "LOCKED"
-		} else if complete {
+		if complete {
 			status = "COMPLETED"
-		}
-		if status != "IN_PROGRESS" {
-			currentID = nil
-			currentName = nil
+		} else if total > 0 && done == 0 && currentID == nil {
+			status = "LOCKED"
 		}
 		out = append(out, map[string]any{"id": id, "name": name, "icon": nullString(icon), "description": nullString(desc), "story": nullString(story), "orderIndex": order, "status": status, "levelsCompleted": done, "totalLevels": total, "xpEarned": xp, "currentLevelId": currentID, "currentLevelName": currentName})
-		prev = complete
 	}
 	return out, rows.Err()
 }
@@ -233,7 +239,7 @@ func (a *App) mapProgress(w http.ResponseWriter, r *http.Request, user int64) {
 	for _, v := range m {
 		total += v["totalLevels"].(int)
 		done += v["levelsCompleted"].(int)
-		if id == nil && v["status"] != "COMPLETED" {
+		if id == nil && v["currentLevelId"] != nil {
 			id = v["id"]
 			name = v["name"]
 		}
@@ -267,6 +273,30 @@ func (a *App) mapDetail(w http.ResponseWriter, r *http.Request, user int64) {
 		bad(w, "地图不存在")
 		return
 	}
+	type taskCount struct{ total, done int }
+	counts := make(map[int64]taskCount)
+	rows, err := a.DB.QueryContext(r.Context(), `SELECT t.level_id, count(*),
+		sum(CASE WHEN EXISTS(SELECT 1 FROM user_task_submissions s
+			WHERE s.task_id=t.id AND s.user_id=? AND s.status='APPROVED') THEN 1 ELSE 0 END)
+		FROM tasks t JOIN levels l ON l.id=t.level_id WHERE l.map_id=? GROUP BY t.level_id`, user, id)
+	if err != nil {
+		fail(w)
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var levelID int64
+		var count taskCount
+		if err := rows.Scan(&levelID, &count.total, &count.done); err != nil {
+			fail(w)
+			return
+		}
+		counts[levelID] = count
+	}
+	if err := rows.Err(); err != nil {
+		fail(w)
+		return
+	}
 	levels := []any{}
 	for _, l := range s.levels {
 		if !l.MapID.Valid || l.MapID.Int64 != id {
@@ -278,13 +308,8 @@ func (a *App) mapDetail(w http.ResponseWriter, r *http.Request, user int64) {
 		} else if s.unlocked(l) {
 			status = "LEARNING"
 		}
-		var total, done int
-		err = a.DB.QueryRowContext(r.Context(), `SELECT count(*), COALESCE(sum(CASE WHEN EXISTS(SELECT 1 FROM user_task_submissions s WHERE s.task_id=t.id AND s.user_id=? AND s.status='APPROVED') THEN 1 ELSE 0 END),0) FROM tasks t WHERE t.level_id=?`, user, l.ID).Scan(&total, &done)
-		if err != nil {
-			fail(w)
-			return
-		}
-		levels = append(levels, map[string]any{"id": l.ID, "name": l.Name, "description": nullString(l.Description), "orderIndex": l.Order, "xpReward": l.XP, "status": status, "progress": s.progress[l.ID].Progress, "taskDone": done, "taskTotal": total})
+		count := counts[l.ID]
+		levels = append(levels, map[string]any{"id": l.ID, "name": l.Name, "description": nullString(l.Description), "orderIndex": l.Order, "xpReward": l.XP, "status": status, "progress": s.progress[l.ID].Progress, "taskDone": count.done, "taskTotal": count.total, "prerequisiteNames": s.prerequisiteNames(l)})
 	}
 	delete(found, "xpEarned")
 	delete(found, "currentLevelId")
@@ -310,15 +335,7 @@ func (a *App) levelTree(w http.ResponseWriter, r *http.Request, user int64) {
 		for _, t := range tasks {
 			ts = append(ts, map[string]any{"id": t.ID, "title": t.Title, "sortOrder": nullInt(t.Order)})
 		}
-		names := []string{}
-		for _, id := range l.Prereqs {
-			if p, ok := s.byID[id]; ok {
-				names = append(names, p.Name)
-			} else {
-				names = append(names, "未知")
-			}
-		}
-		out = append(out, map[string]any{"id": l.ID, "name": l.Name, "mapId": nullInt(l.MapID), "orderIndex": l.Order, "tier": l.Tier, "category": nullString(l.Category), "status": status, "progress": progress, "tasks": ts, "prerequisiteNames": names, "prerequisiteIds": l.Prereqs})
+		out = append(out, map[string]any{"id": l.ID, "name": l.Name, "mapId": nullInt(l.MapID), "orderIndex": l.Order, "tier": l.Tier, "category": nullString(l.Category), "status": status, "progress": progress, "tasks": ts, "prerequisiteNames": s.prerequisiteNames(l), "prerequisiteIds": l.Prereqs})
 	}
 	ok(w, out)
 }
@@ -403,13 +420,5 @@ func (a *App) levelDetail(w http.ResponseWriter, r *http.Request, user int64) {
 		}
 		ts = append(ts, map[string]any{"id": t.ID, "title": t.Title, "description": nullString(t.Description), "acceptanceCriteria": criteria(t), "xpReward": t.XP, "sortOrder": nullInt(t.Order), "submissionStatus": subStatus, "aiFeedback": nullString(feedback), "aiReviewEnabled": t.AI != 0})
 	}
-	names := []string{}
-	for _, pid := range l.Prereqs {
-		if p, ok := s.byID[pid]; ok {
-			names = append(names, p.Name)
-		} else {
-			names = append(names, "未知")
-		}
-	}
-	ok(w, map[string]any{"id": l.ID, "name": l.Name, "tier": l.Tier, "category": nullString(l.Category), "mapId": nullInt(l.MapID), "mapName": nullString(mapName), "prerequisiteNames": names, "tutorials": tutorials, "tasks": ts, "userStatus": map[string]any{"status": status, "progress": pct}})
+	ok(w, map[string]any{"id": l.ID, "name": l.Name, "tier": l.Tier, "category": nullString(l.Category), "mapId": nullInt(l.MapID), "mapName": nullString(mapName), "prerequisiteNames": s.prerequisiteNames(l), "tutorials": tutorials, "tasks": ts, "userStatus": map[string]any{"status": status, "progress": pct}})
 }

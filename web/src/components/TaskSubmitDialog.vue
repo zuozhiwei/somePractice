@@ -1,5 +1,5 @@
 <template>
-  <el-dialog v-model="visible" title="提交任务" width="900px" @close="reset" :close-on-click-modal="false" top="3vh">
+  <el-dialog v-model="visible" title="提交任务" width="min(900px, calc(100% - 24px))" :show-close="!busy" :close-on-press-escape="!busy" @close="reset" :close-on-click-modal="false" top="3vh">
     <div v-if="task" class="submit-content">
       <!-- Task info -->
       <div class="task-header-info">
@@ -24,21 +24,18 @@
             </button>
           </div>
           <div class="toolbar-right">
-            <button class="tb-btn tip-hint" title="选择附件上传（pdf/doc/xls/ppt/txt/md/zip/rar/7z，≤10MB）"
-                    @click="fileInputRef?.click()">📎 附件</button>
-            <button class="tb-btn tip-hint" :class="{ 'tb-uploading': uploading }" title="支持直接粘贴图片或文件 (Ctrl+V)">
-              {{ uploading ? '⏳ 上传中...' : '🖼 粘贴图片/文件' }}
+            <button type="button" class="tb-btn tip-hint" :disabled="busy || uploading" @click="fileInputRef?.click()">
+              {{ uploading ? '上传中…' : '添加图片或附件' }}
             </button>
           </div>
-          <input ref="fileInputRef" type="file" multiple hidden
-                 accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.zip,.rar,.7z"
+          <input ref="fileInputRef" type="file" multiple hidden :accept="acceptedFiles"
                  @change="onPickFiles" />
         </div>
 
         <!-- Tabs -->
         <div class="editor-tabs">
-          <button :class="{ active: mode === 'edit' }" @click="mode = 'edit'">📝 编辑</button>
-          <button :class="{ active: mode === 'preview' }" @click="mode = 'preview'">👁 预览</button>
+          <button :class="{ active: mode === 'edit' }" @click="mode = 'edit'">编辑</button>
+          <button :class="{ active: mode === 'preview' }" @click="mode = 'preview'">预览</button>
         </div>
 
         <!-- Edit area -->
@@ -46,23 +43,8 @@
           <textarea ref="textareaRef"
                     v-model="submissionData"
                     class="md-editor"
-                    placeholder="请描述你的完成过程和结果，支持 Markdown 语法。
-
-可直接粘贴图片或文件 (Ctrl+V)，也可点工具栏「📎 附件」上传，文件自动存入七牛云。
-
-示例：
-# 实现步骤
-1. 配置了 xxx 环境
-2. 编写了 xxx 代码
-
-## 运行截图
-![截图](粘贴图片到这里)
-
-## 核心代码
-` ` `java
-public class Demo { ... }
-` ` `
-"
+                    aria-label="作业内容"
+                    placeholder="记录完成过程和结果，可使用 Markdown。图片或附件支持粘贴，也可以通过上方按钮上传。"
                     @paste="onPaste"
           ></textarea>
         </div>
@@ -76,18 +58,18 @@ public class Demo { ... }
 
       <div class="tips-box">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-        <span>提交后可由导师人工审核或 AI 自动验收（AI 验收每任务限 3 次）。提交内容越详细，通过率越高。</span>
+        <span>单个文件上限 10 MB。支持常见图片、文档和压缩包，上传后会自动插入链接。</span>
       </div>
     </div>
     <template #footer>
-      <el-button @click="visible = false" round>取消</el-button>
-      <el-button type="primary" @click="submit" :loading="submitting" round>
+      <el-button @click="visible = false" :disabled="busy" round>取消</el-button>
+      <el-button type="primary" @click="submit" :loading="submitting" :disabled="!canSubmit" round>
         提交人工审核
       </el-button>
       <el-tooltip :content="task?.aiReviewEnabled ? 'AI 将自动评估你的提交' : '此任务未开启 AI 审核'" placement="top">
         <el-button type="success" @click="submitWithAI" :loading="aiSubmitting" round
-                   :disabled="!task?.aiReviewEnabled">
-          🤖 提交并 AI 验收
+                   :disabled="!task?.aiReviewEnabled || !canSubmit">
+          提交并 AI 验收
         </el-button>
       </el-tooltip>
     </template>
@@ -111,6 +93,9 @@ const submitting = ref(false)
 const aiSubmitting = ref(false)
 const submissionData = ref('')
 const mode = ref('edit')
+const busy = computed(() => submitting.value || aiSubmitting.value)
+const canSubmit = computed(() => submissionData.value.trim().length > 0 && !uploading.value && !busy.value)
+let editorSession = 0
 const textareaRef = ref(null)
 const uploading = ref(false)  // 图片上传中标记
 
@@ -119,6 +104,7 @@ const fileInputRef = ref(null)
 const MAX_FILE_SIZE = 10 * 1024 * 1024
 const ALLOWED_FILE_EXTS = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'md', 'zip', 'rar', '7z']
 const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'gif', 'webp']
+const acceptedFiles = [...IMAGE_EXTS, ...ALLOWED_FILE_EXTS].map(ext => '.' + ext).join(',')
 
 function fileExt(name) {
   const i = name.lastIndexOf('.')
@@ -189,7 +175,9 @@ async function signPreview() {
     if (seq === signSeq) previewMarkdown.value = md  // 签名失败时原样渲染（非七牛图不受影响）
   }
 }
-watch(submissionData, signPreview, { immediate: true })
+watch([mode, submissionData], () => {
+  if (mode.value === 'preview') signPreview()
+})
 
 // Build submission payload: markdown 里已是七牛图片 URL，直接提交
 function buildPayload() {
@@ -242,27 +230,26 @@ async function onPaste(e) {
   const files = extractClipboardFiles(items)
   if (!files.length) return
   e.preventDefault()
-  uploading.value = true
-  try {
-    for (const file of files) {
-      if (validateFile(file)) await uploadAndInsert(file)
-    }
-  } finally {
-    uploading.value = false
-  }
+  await insertFiles(files)
 }
 
 async function onPickFiles(e) {
   const files = Array.from(e.target.files || [])
-  e.target.value = ''  // 允许重复选择同一文件
-  if (!files.length) return
+  e.target.value = ''
+  await insertFiles(files)
+}
+
+async function insertFiles(files) {
+  if (!files.length || uploading.value || busy.value) return
+  const session = editorSession
   uploading.value = true
   try {
     for (const file of files) {
-      if (validateFile(file)) await uploadAndInsert(file)
+      if (session !== editorSession) break
+      if (validateFile(file)) await uploadAndInsert(file, session)
     }
   } finally {
-    uploading.value = false
+    if (session === editorSession) uploading.value = false
   }
 }
 
@@ -298,12 +285,13 @@ async function uploadFile(file) {
 }
 
 // 上传单个文件并在光标处插入 Markdown（图片用 ![]()，其他用 [文件名](url)）
-async function uploadAndInsert(file) {
+async function uploadAndInsert(file, session) {
   const el = textareaRef.value
   const start = el ? el.selectionStart : submissionData.value.length
   const isImage = IMAGE_EXTS.includes(fileExt(file.name))
   try {
     const url = await uploadFile(file)
+    if (session !== editorSession) return
     const md = isImage ? `![](${url})` : `[${file.name}](${url})`
     submissionData.value =
       submissionData.value.substring(0, start) + md + submissionData.value.substring(start)
@@ -315,11 +303,15 @@ async function uploadAndInsert(file) {
       }
     })
   } catch (err) {
+    if (session !== editorSession) return
     ElMessage.error((isImage ? '图片' : '附件') + '上传失败：' + (err.message || '未知错误'))
   }
 }
 
 async function open() {
+  const session = ++editorSession
+  await nextTick()
+  if (session !== editorSession) return
   visible.value = true
   submissionData.value = ''
   mode.value = 'edit'
@@ -328,7 +320,7 @@ async function open() {
     try {
       const res = await tasksApi.taskSubmissions(props.task.id)
       const list = res.data.data || []
-      if (list.length && list[0].submissionData) {
+      if (session === editorSession && !submissionData.value && list.length && list[0].submissionData) {
         submissionData.value = list[0].submissionData
       }
     } catch (e) { /* 忽略：加载失败时保持空编辑器 */ }
@@ -336,16 +328,14 @@ async function open() {
 }
 
 function reset() {
+  editorSession++
+  uploading.value = false
   submissionData.value = ''
   mode.value = 'edit'
 }
 
 async function submit() {
-  if (!props.task) return
-  if (uploading.value) {
-    ElMessage.warning('文件正在上传，请稍候再提交')
-    return
-  }
+  if (!props.task || !canSubmit.value) return
   submitting.value = true
   try {
     await tasksApi.submit(props.task.id, buildPayload())
@@ -360,11 +350,7 @@ async function submit() {
 }
 
 async function submitWithAI() {
-  if (!props.task) return
-  if (uploading.value) {
-    ElMessage.warning('文件正在上传，请稍候再提交')
-    return
-  }
+  if (!props.task || !canSubmit.value) return
   aiSubmitting.value = true
   try {
     const res = await tasksApi.submit(props.task.id, buildPayload())
@@ -386,17 +372,17 @@ defineExpose({ open })
 .submit-content { display: flex; flex-direction: column; gap: 12px; }
 
 /* --- Task header --- */
-.task-header-info { }
+
 .task-title-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 4px; }
 .task-dialog-title { font-size: 16px; font-weight: 600; color: var(--color-text); line-height: 1.4; }
-.xp-badge { font-size: 13px; font-weight: 700; color: #d97706; background: #fef3c7; padding: 3px 10px; border-radius: 6px; white-space: nowrap; }
-.status-row { font-size: 13px; color: #94a3b8; display: flex; align-items: center; gap: 6px; }
+.xp-badge { font-size: 13px; font-weight: 700; color: #895b19; background: #faf0d7; padding: 3px 10px; border-radius: 6px; white-space: nowrap; }
+.status-row { font-size: 13px; color: #667568; display: flex; align-items: center; gap: 6px; }
 .status-tag { font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 4px; }
-.status-tag.approved { background: #dcfce7; color: #16a34a; }
+.status-tag.approved { background: #e0efe6; color: #30684b; }
 .status-tag.rejected { background: #fee2e2; color: #dc2626; }
-.status-tag.pending { background: #fef3c7; color: #d97706; }
+.status-tag.pending { background: #faf0d7; color: #895b19; }
 .status-tag.ai_reviewed { background: #e0f2fe; color: #0284c7; }
-.status-tag.none { background: #f1f5f9; color: #94a3b8; }
+.status-tag.none { background: #edf0e9; color: #667568; }
 
 /* --- Editor wrapper --- */
 .editor-wrapper { border: 1px solid var(--color-border); border-radius: 10px; overflow: hidden; }
@@ -404,63 +390,69 @@ defineExpose({ open })
 /* --- Toolbar --- */
 .editor-toolbar {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 8px 12px; background: #fafbfc; border-bottom: 1px solid var(--color-border);
+  padding: 8px 12px; background: #f7f7f2; border-bottom: 1px solid var(--color-border);
   flex-wrap: wrap; gap: 6px;
 }
 .toolbar-left { display: flex; gap: 4px; flex-wrap: wrap; }
 .toolbar-right { display: flex; gap: 4px; }
 .tb-btn {
-  border: 1px solid #e2e8f0; background: #fff; border-radius: 5px;
-  padding: 4px 10px; font-size: 12px; font-weight: 500; color: #475569;
+  border: 1px solid #dce2d7; background: #fff; border-radius: 5px;
+  padding: 4px 10px; font-size: 12px; font-weight: 500; color: #3e5147;
   cursor: pointer; transition: all .15s;
 }
-.tb-btn:hover { background: #f1f5f9; border-color: #cbd5e1; }
-.tip-hint { color: #6366f1; border-color: #ddd6fe; background: #f5f3ff; font-size: 11px; }
-.tb-uploading { color: #16a34a; border-color: #bbf7d0; background: #f0fdf4; }
+.tb-btn:hover { background: #edf0e9; border-color: #bfcbbf; }
+.tip-hint { color: #216354; border-color: #cfddc9; background: #f2f6ee; font-size: 11px; }
+.tb-uploading { color: #30684b; border-color: #bbf7d0; background: #f0f6ed; }
 
 /* --- Tabs --- */
 .editor-tabs {
-  display: flex; gap: 0; background: #fafbfc; border-bottom: 1px solid var(--color-border);
+  display: flex; gap: 0; background: #f7f7f2; border-bottom: 1px solid var(--color-border);
 }
 .editor-tabs button {
   flex: 1; border: none; background: none; padding: 10px 16px;
-  font-size: 13px; font-weight: 500; color: #94a3b8; cursor: pointer;
+  font-size: 13px; font-weight: 500; color: #667568; cursor: pointer;
   transition: all .15s; border-bottom: 2px solid transparent;
 }
-.editor-tabs button.active { color: #6366f1; border-bottom-color: #6366f1; background: #fff; }
-.editor-tabs button:hover:not(.active) { color: #475569; }
+.editor-tabs button.active { color: #216354; border-bottom-color: #216354; background: #fff; }
+.editor-tabs button:hover:not(.active) { color: #3e5147; }
 
 /* --- Edit pane --- */
-.editor-pane { }
+
 .md-editor {
   width: 100%; min-height: 380px; border: none; outline: none; resize: vertical;
   padding: 16px; font-size: 14px; font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Menlo', monospace;
-  line-height: 1.7; color: #1e293b; background: #fff;
+  line-height: 1.7; color: #263b31; background: #fff;
   box-sizing: border-box;
 }
-.md-editor::placeholder { color: #cbd5e1; font-family: inherit; }
+.md-editor::placeholder { color: #6e786f; font-family: inherit; }
 
 /* --- Preview pane --- */
 .preview-pane { min-height: 380px; background: #fff; }
 .preview-body { padding: 16px 20px; line-height: 1.8; font-size: 14px; color: #334155; }
-.preview-body :deep(h1) { font-size: 22px; margin: 16px 0 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+.preview-body :deep(h1) { font-size: 22px; margin: 16px 0 8px; border-bottom: 1px solid #dce2d7; padding-bottom: 4px; }
 .preview-body :deep(h2) { font-size: 18px; margin: 14px 0 6px; }
 .preview-body :deep(h3) { font-size: 15px; margin: 12px 0 4px; }
 .preview-body :deep(p) { margin: 8px 0; }
-.preview-body :deep(img) { max-width: 100%; border-radius: 6px; margin: 8px 0; border: 1px solid #e2e8f0; }
+.preview-body :deep(img) { max-width: 100%; border-radius: 6px; margin: 8px 0; border: 1px solid #dce2d7; }
 .preview-body :deep(pre) { background: #f6f8fa; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 13px; }
-.preview-body :deep(code) { font-size: 13px; background: #f1f5f9; padding: 1px 4px; border-radius: 3px; }
+.preview-body :deep(code) { font-size: 13px; background: #edf0e9; padding: 1px 4px; border-radius: 3px; }
 .preview-body :deep(pre code) { background: none; padding: 0; }
-.preview-body :deep(blockquote) { border-left: 3px solid #6366f1; padding-left: 12px; color: #64748b; margin: 8px 0; }
+.preview-body :deep(blockquote) { border-left: 3px solid #216354; padding-left: 12px; color: #58685d; margin: 8px 0; }
 .preview-body :deep(ul), .preview-body :deep(ol) { padding-left: 20px; }
 .preview-body :deep(li) { margin: 4px 0; }
-.preview-body :deep(hr) { border: none; border-top: 1px solid #e2e8f0; margin: 16px 0; }
-.preview-body :deep(a) { color: #6366f1; }
+.preview-body :deep(hr) { border: none; border-top: 1px solid #dce2d7; margin: 16px 0; }
+.preview-body :deep(a) { color: #216354; }
 
 /* --- Tips --- */
 .tips-box {
   display: flex; align-items: flex-start; gap: 8px;
-  font-size: 12px; color: #94a3b8; line-height: 1.6;
-  padding: 10px 12px; background: #f8fafc; border-radius: 8px;
+  font-size: 12px; color: #667568; line-height: 1.6;
+  padding: 10px 12px; background: #f5f6f0; border-radius: 8px;
+}
+@media(max-width: 640px) {
+  .md-editor,.preview-pane { min-height: 240px; }
+  .editor-toolbar { align-items: flex-start; padding: 8px; }
+  .toolbar-right { width: 100%; }
+  .tb-btn { min-height: 30px; }
 }
 </style>

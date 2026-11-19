@@ -3,7 +3,7 @@
     <div class="page-title-row">
       <div>
         <h1 class="page-title">技能树</h1>
-        <p class="page-subtitle">按依赖关系展开，逐级解锁技能模块</p>
+        <p class="page-subtitle">{{ skills.length }} 个关卡 · {{ skills.filter(skill => skill.status === 'COMPLETED').length }} 个已通关</p>
       </div>
       <div class="legend">
         <span class="legend-item"><span class="dot locked"></span>未解锁</span>
@@ -14,32 +14,26 @@
 
     <div class="section-card" style="margin-bottom:20px">
       <div class="section-body" style="padding:12px 24px">
-        <el-tabs v-model="activeCategory" @tab-change="onTabChange">
+        <el-tabs v-model="activeCategory">
           <el-tab-pane label="全部" name="all" />
-          <el-tab-pane label="前端" name="前端" />
-          <el-tab-pane label="后端" name="后端" />
-          <el-tab-pane label="数据库" name="数据库" />
-          <el-tab-pane label="运维" name="运维" />
-          <el-tab-pane label="工具" name="工具" />
-          <el-tab-pane label="综合" name="综合" />
-          <el-tab-pane label="软技能" name="软技能" />
+          <el-tab-pane v-for="category in categories" :key="category" :label="category" :name="category" />
         </el-tabs>
       </div>
     </div>
 
     <div class="tree-wrapper" v-loading="loading" ref="treeContainer">
-      <svg class="connections-svg" :width="svgWidth" :height="svgHeight" v-if="svgWidth > 0">
+      <svg aria-hidden="true" class="connections-svg" :width="svgWidth" :height="svgHeight" v-if="svgWidth > 0">
         <defs>
           <marker id="arrowActive" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-            <polygon points="0 0, 6 3, 0 6" fill="#6366f1" />
+            <polygon points="0 0, 6 3, 0 6" fill="#216354" />
           </marker>
           <marker id="arrowDimmed" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-            <polygon points="0 0, 6 3, 0 6" fill="#cbd5e1" />
+            <polygon points="0 0, 6 3, 0 6" fill="#bfcbbf" />
           </marker>
         </defs>
         <g v-for="conn in connections" :key="conn.key">
           <path :d="conn.path"
-                :stroke="conn.active ? '#6366f1' : '#cbd5e1'"
+                :stroke="conn.active ? '#216354' : '#bfcbbf'"
                 :stroke-width="conn.active ? 2 : 1.5"
                 fill="none"
                 :stroke-dasharray="conn.active ? 'none' : '6 4'"
@@ -49,12 +43,12 @@
       </svg>
 
       <div class="tree-columns" ref="columnsEl">
-        <div v-for="(column, colIdx) in columns" :key="colIdx" class="tree-column">
+        <div v-for="column in columns" :key="column.id" class="tree-column">
           <div class="column-label">
-            <span class="col-num">{{ colIdx + 1 }}</span>
-            <span>{{ mapLabel(colIdx) }}</span>
+            <span class="col-num">{{ column.number || '·' }}</span>
+            <span>{{ column.name }}</span>
           </div>
-          <div v-for="skill in column" :key="skill.id" class="skill-node-wrapper"
+          <div v-for="skill in column.skills" :key="skill.id" class="skill-node-wrapper"
                :ref="el => setNodeRef(skill.id, el)" :data-sid="skill.id">
             <el-tooltip :disabled="skill.status !== 'LOCKED' || !getLockReason(skill)"
                          :content="getLockReason(skill)"
@@ -66,6 +60,7 @@
                      learning: skill.status === 'LEARNING',
                      mastered: skill.status === 'COMPLETED'
                    }"
+                   role="button" tabindex="0" @keydown.enter.prevent="goDetail(skill)" @keydown.space.prevent="goDetail(skill)"
                    @click="goDetail(skill)"
               >
                 <div class="node-top">
@@ -90,19 +85,24 @@
           </div>
         </div>
       </div>
+      <el-empty v-if="!loading && !filteredSkills.length" :description="loadError ? '无法载入技能树' : '当前没有关卡'">
+        <el-button v-if="loadError" @click="load">重试</el-button>
+      </el-empty>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed, nextTick, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useMapStore } from '../store/map'
 import { mapsApi } from '../api/maps'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const skills = ref([])
-const mapNames = ref({})
+const mapStore = useMapStore()
+const loadError = ref(false)
 const loading = ref(true)
 const activeCategory = ref('all')
 const treeContainer = ref(null)
@@ -115,11 +115,7 @@ const connections = ref([])
 const nodeRefMap = new Map()
 function setNodeRef(id, el) {
   if (el) nodeRefMap.set(id, el)
-}
-
-// Invalidate all cached refs when switching tabs
-function invalidateRefs() {
-  nodeRefMap.clear()
+  else nodeRefMap.delete(id)
 }
 
 function statusText(s) {
@@ -131,23 +127,18 @@ const filteredSkills = computed(() => {
   return skills.value.filter(s => s.category === activeCategory.value)
 })
 
-// 42 关按地图分组：每 6 关一张地图（levelId 1-6 → 地图1 ... 37-42 → 地图7），避免线性链拆出 42 列
+const categories = computed(() => [...new Set(skills.value.map(skill => skill.category).filter(Boolean))])
 const columns = computed(() => {
-  const list = filteredSkills.value
-  const cols = []
-  for (const s of list) {
-    const mapIdx = Math.min(6, Math.floor((s.id - 1) / 6))
-    if (!cols[mapIdx]) cols[mapIdx] = []
-    cols[mapIdx].push(s)
+  const chapters = new Map((mapStore.progress?.maps || []).map((chapter, i) => [chapter.id,
+    { id: chapter.id, number: i + 1, name: chapter.name, skills: [] }
+  ]))
+  for (const skill of filteredSkills.value) {
+    const id = skill.mapId ?? 'unassigned'
+    if (!chapters.has(id)) chapters.set(id, { id, name: skill.mapId ? '章节 ' + id : '未分章', skills: [] })
+    chapters.get(id).skills.push(skill)
   }
-  for (const col of cols) if (col) col.sort((a, b) => a.id - b.id)
-  return cols.filter(Boolean)
+  return [...chapters.values()].filter(chapter => chapter.skills.length)
 })
-
-function mapLabel(colIdx) {
-  const id = colIdx + 1
-  return mapNames.value[id] || `第 ${id} 章`
-}
 
 function computeConnections() {
   const treeEl = treeContainer.value
@@ -158,8 +149,8 @@ function computeConnections() {
   const visibleIds = new Set(visibleList.map(s => s.id))
   const skillMap = new Map(skills.value.map(s => [s.id, s]))
   const treeRect = treeEl.getBoundingClientRect()
-  const treeLeft = treeRect.left
-  const treeTop = treeRect.top
+  const treeLeft = treeRect.left + treeEl.clientLeft - treeEl.scrollLeft
+  const treeTop = treeRect.top + treeEl.clientTop - treeEl.scrollTop
 
   const conns = []
 
@@ -221,14 +212,15 @@ function computeConnections() {
 function updateSvgSize() {
   const el = treeContainer.value
   if (!el) return
-  svgWidth.value = Math.max(el.scrollWidth, el.clientWidth)
-  svgHeight.value = Math.max(el.scrollHeight, el.clientHeight)
+  svgWidth.value = Math.max(columnsEl.value?.scrollWidth + (columnsEl.value?.offsetLeft || 0) || 0, el.clientWidth)
+  svgHeight.value = Math.max(columnsEl.value?.offsetHeight + (columnsEl.value?.offsetTop || 0) || 0, el.clientHeight)
 }
 
 function getLockReason(skill) {
   if (!skill.prerequisiteIds?.length) return ''
   const skillMap = new Map(skills.value.map(s => [s.id, s]))
   const names = skill.prerequisiteIds
+    .filter(pid => skillMap.get(pid)?.status !== 'COMPLETED')
     .map(pid => skillMap.get(pid)?.name)
     .filter(Boolean)
   if (!names.length) return ''
@@ -248,45 +240,35 @@ function goDetail(skill) {
   router.push(`/level/${skill.id}`)
 }
 
-function onTabChange() {
-  invalidateRefs()
-  nextTick(() => {
-    nextTick(() => {
-      computeConnections()
-      updateSvgSize()
-    })
-  })
-}
-
-// Watch filtered skills to recompute
-watch(filteredSkills, async () => {
-  await nextTick()
+async function updateDiagram() {
   await nextTick()
   computeConnections()
   updateSvgSize()
-})
+}
 
-onMounted(async () => {
+watch(columns, updateDiagram, { flush: 'post' })
+
+async function load() {
+  loading.value = true
+  loadError.value = false
   try {
-    const [treeRes, mapsRes] = await Promise.all([
-      mapsApi.levelTree(),
-      mapsApi.list().catch(() => null)
-    ])
+    const [treeRes] = await Promise.all([mapsApi.levelTree(), mapStore.fetchProgress()])
     skills.value = treeRes.data.data || []
-    const names = {}
-    for (const mp of mapsRes?.data?.data || []) names[mp.id] = mp.name
-    mapNames.value = names
-    await nextTick()
-    await nextTick()
-    await nextTick()
-    computeConnections()
-    updateSvgSize()
-  } catch (e) {
-    console.error(e)
+  } catch {
+    loadError.value = true
   } finally {
     loading.value = false
   }
+}
+
+let resizeObserver
+onMounted(() => {
+  resizeObserver = new ResizeObserver(updateDiagram)
+  resizeObserver.observe(columnsEl.value)
+  resizeObserver.observe(treeContainer.value)
+  load()
 })
+onBeforeUnmount(() => resizeObserver?.disconnect())
 </script>
 
 <style scoped>
@@ -296,16 +278,19 @@ onMounted(async () => {
 .legend { display: flex; gap: 20px; font-size: 13px; color: var(--color-text-secondary); margin-top: 4px; }
 .legend-item { display: flex; align-items: center; gap: 6px; }
 .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-.dot.locked { background: #cbd5e1; }
-.dot.learning { background: #6366f1; }
-.dot.mastered { background: #22c55e; }
+.dot.locked { background: #bfcbbf; }
+.dot.learning { background: #216354; }
+.dot.mastered { background: #3b825f; }
 
 .tree-wrapper {
   position: relative; overflow: auto;
   background: var(--color-surface);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
-  min-height: 400px;
+  border: 1px solid var(--color-border);
+  background-image: radial-gradient(#d1dccf 1px, transparent 1px);
+  background-size: 18px 18px;
+  min-height: 330px;
   padding: 28px 20px;
 }
 
@@ -329,13 +314,13 @@ onMounted(async () => {
 .column-label {
   display: flex; align-items: center; gap: 6px;
   padding: 8px 0; margin-bottom: 4px;
-  font-size: 12px; font-weight: 600; color: #94a3b8;
+  font-size: 12px; font-weight: 600; color: #667568;
   text-transform: uppercase; letter-spacing: 2px;
 }
 
 .col-num {
   width: 24px; height: 24px; border-radius: 50%;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  background: linear-gradient(135deg, #216354, #397c67);
   color: #fff; display: flex; align-items: center; justify-content: center;
   font-size: 12px;
 }
@@ -351,29 +336,38 @@ onMounted(async () => {
   transition: all .2s;
 }
 .skill-node:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
-.skill-node.locked { opacity: 0.45; }
-.skill-node.learning { border-color: #6366f1; }
-.skill-node.mastered { border-color: #22c55e; background: #f0fdf4; }
+.skill-node.locked { background: #f4f5ef; }
+.skill-node.learning { border-color: #216354; }
+.skill-node.mastered { border-color: #3b825f; background: #f0f6ed; }
 
 .node-top { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
 .node-lv { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; }
-.node-lv.lv-1, .node-lv.lv-2 { background: #f1f5f9; color: #64748b; }
-.node-lv.lv-3 { background: #fef3c7; color: #d97706; }
+.node-lv.lv-1, .node-lv.lv-2 { background: #edf0e9; color: #58685d; }
+.node-lv.lv-3 { background: #faf0d7; color: #895b19; }
 .node-lv.lv-4, .node-lv.lv-5 { background: #fee2e2; color: #dc2626; }
-.node-cat { font-size: 11px; color: #94a3b8; }
+.node-cat { font-size: 11px; color: #667568; }
 
 .node-name { font-size: 14px; font-weight: 600; color: var(--color-text); margin-bottom: 8px; line-height: 1.4; }
 
-.node-status { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #94a3b8; margin-bottom: 10px; }
+.node-status { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #667568; margin-bottom: 10px; }
 .status-indicator { width: 6px; height: 6px; border-radius: 50%; }
-.status-indicator.locked { background: #cbd5e1; }
-.status-indicator.learning { background: #6366f1; }
-.status-indicator.mastered { background: #22c55e; }
+.status-indicator.locked { background: #bfcbbf; }
+.status-indicator.learning { background: #216354; }
+.status-indicator.completed { background: #3b825f; }
 
 .node-progress { display: flex; align-items: center; gap: 8px; }
-.progress-bar { flex: 1; height: 4px; background: #f1f5f9; border-radius: 2px; overflow: hidden; }
-.progress-fill { height: 100%; background: #6366f1; border-radius: 2px; transition: width .3s; }
-.progress-fill.complete { background: #22c55e; }
-.progress-pct { font-size: 11px; color: #6366f1; font-weight: 600; }
-.progress-done { color: #22c55e; font-size: 12px; }
+.progress-bar { flex: 1; height: 4px; background: #edf0e9; border-radius: 2px; overflow: hidden; }
+.progress-fill { height: 100%; background: #216354; border-radius: 2px; transition: width .3s; }
+.progress-fill.complete { background: #3b825f; }
+.progress-pct { font-size: 11px; color: #216354; font-weight: 600; }
+.progress-done { color: #3b825f; font-size: 12px; }
+
+.page-title-row { flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+.page-title-row .page-subtitle { margin-bottom: 0; }
+.skill-node { overflow-wrap: anywhere; }
+.skill-node:focus-visible { outline: 3px solid #a8854d; outline-offset: 2px; }
+@media(max-width:600px) {
+  .tree-wrapper { padding: 16px 12px; }
+  .tree-column { min-width: 170px; }
+}
 </style>

@@ -1,5 +1,5 @@
 <template>
-  <el-dialog v-model="visible" :title="`提交记录 · ${task?.title || ''}`" width="860px" top="3vh">
+  <el-dialog v-model="visible" :title="`提交记录 · ${task?.title || ''}`" width="min(860px, calc(100% - 24px))" top="3vh">
     <div v-loading="loading" class="history-body">
       <div v-if="!loading && !submissions.length" class="empty-tip">
         <el-empty description="还没有提交记录" :image-size="70" />
@@ -103,28 +103,28 @@ defineExpose({ open })
 }
 .history-left { display: flex; align-items: center; gap: 10px; }
 .attempt-badge {
-  font-size: 12px; font-weight: 600; color: #6366f1;
-  background: #eef2ff; padding: 3px 10px; border-radius: 6px;
+  font-size: 12px; font-weight: 600; color: #216354;
+  background: #edf5ee; padding: 3px 10px; border-radius: 6px;
 }
-.history-time { font-size: 12px; color: #94a3b8; }
+.history-time { font-size: 12px; color: #667568; }
 
 .status-tag { font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 4px; }
-.status-tag.approved { background: #dcfce7; color: #16a34a; }
+.status-tag.approved { background: #e0efe6; color: #30684b; }
 .status-tag.rejected { background: #fee2e2; color: #dc2626; }
-.status-tag.pending { background: #fef3c7; color: #d97706; }
+.status-tag.pending { background: #faf0d7; color: #895b19; }
 .status-tag.ai_reviewed { background: #e0f2fe; color: #0284c7; }
 
-.history-section { padding: 12px 14px; background: #f8fafc; border-radius: 8px; }
-.history-section-title { font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 8px; }
+.history-section { padding: 12px 14px; background: #f5f6f0; border-radius: 8px; }
+.history-section-title { font-size: 12px; font-weight: 600; color: #58685d; margin-bottom: 8px; }
 .md-preview { font-size: 14px; line-height: 1.8; color: #334155; }
-.md-preview :deep(img) { max-width: 100%; border-radius: 6px; border: 1px solid #e2e8f0; }
-.md-preview :deep(pre) { background: #1e293b; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 13px; }
-.md-preview :deep(code) { font-size: 13px; background: #f1f5f9; padding: 1px 4px; border-radius: 3px; }
+.md-preview :deep(img) { max-width: 100%; border-radius: 6px; border: 1px solid #dce2d7; }
+.md-preview :deep(pre) { background: #263b31; color: #dce2d7; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 13px; }
+.md-preview :deep(code) { font-size: 13px; background: #edf0e9; padding: 1px 4px; border-radius: 3px; }
 .md-preview :deep(pre code) { background: none; padding: 0; color: inherit; }
-.md-preview :deep(blockquote) { border-left: 3px solid #6366f1; padding-left: 12px; color: #64748b; margin: 8px 0; }
+.md-preview :deep(blockquote) { border-left: 3px solid #216354; padding-left: 12px; color: #58685d; margin: 8px 0; }
 .md-preview :deep(ul), .md-preview :deep(ol) { padding-left: 20px; }
 
 .ai-box { background: #f0f9ff; border: 1px solid #bae6fd; }
-.plain-text { font-size: 13px; color: #475569; white-space: pre-wrap; line-height: 1.7; }
-.reviewed-line { font-size: 12px; color: #94a3b8; }
+.plain-text { font-size: 13px; color: #3e5147; white-space: pre-wrap; line-height: 1.7; }
+.reviewed-line { font-size: 12px; color: #667568; }
 </style>

@@ -1,12 +1,13 @@
 <template>
   <div class="admin-page">
     <div class="admin-header">
+      <div class="staff-identity">{{ isSuperAdmin ? '超级管理员' : '教师' }}</div>
       <div>
         <h1 class="admin-title">{{ isSuperAdmin ? '系统管理' : '作业审核' }}</h1>
       </div>
     </div>
 
-    <div class="section-card" style="margin-bottom:20px">
+    <div class="admin-tabs">
       <div class="section-body" style="padding:0">
         <el-tabs v-model="activeTab">
           <el-tab-pane v-if="isSuperAdmin" label="关卡" name="skills" />
@@ -21,7 +22,7 @@
     </div>
 
     <!-- ======================== Skills Tab ======================== -->
-    <div v-show="activeTab === 'skills'">
+    <div class="admin-workspace" v-if="isSuperAdmin" v-show="activeTab === 'skills'">
       <div style="margin-bottom:16px">
         <el-button type="primary" @click="openSkillDialog()">新增关卡</el-button>
       </div>
@@ -46,10 +47,10 @@
     </div>
 
     <!-- ======================== Tasks Tab ======================== -->
-    <div v-show="activeTab === 'tasks'">
-      <div style="display:flex;gap:12px;margin-bottom:16px;align-items:center">
+    <div class="admin-workspace" v-if="isSuperAdmin" v-show="activeTab === 'tasks'">
+      <div class="manage-toolbar">
         <span style="font-size:13px;color:var(--color-text-secondary)">按关卡筛选：</span>
-        <el-select v-model="taskSkillFilter" filterable clearable placeholder="选择关卡" size="small" style="width:240px" @change="fetchTasks">
+        <el-select aria-label="按关卡筛选" v-model="taskSkillFilter" filterable clearable placeholder="选择关卡" size="small" style="width:240px" @change="fetchTasks">
           <el-option v-for="s in skillsList" :key="s.id" :label="s.name" :value="s.id" />
         </el-select>
         <el-button type="primary" size="small" @click="openTaskDialog()" style="margin-left:auto">新增任务</el-button>
@@ -62,16 +63,16 @@
         <el-table-column prop="xpReward" label="XP" width="70" align="center" />
         <el-table-column label="AI审核" width="80" align="center">
           <template #default="{ row }">
-            <el-switch v-model="row.aiReviewEnabled" size="small"
+            <el-switch :aria-label="row.title + ' AI 审核'" v-model="row.aiReviewEnabled" size="small"
                        @change="toggleAiReview(row)" />
           </template>
         </el-table-column>
         <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" text @click="moveTask(row.id, 'up')">
+            <el-button size="small" text aria-label="上移任务" @click="moveTask(row.id, 'up')">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14"><polyline points="18 15 12 9 6 15"/></svg>
             </el-button>
-            <el-button size="small" text @click="moveTask(row.id, 'down')" style="margin-left:0">
+            <el-button size="small" text aria-label="下移任务" @click="moveTask(row.id, 'down')" style="margin-left:0">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14"><polyline points="6 9 12 15 18 9"/></svg>
             </el-button>
             <el-button size="small" text type="primary" @click="openTaskDialog(row)">编辑</el-button>
@@ -82,9 +83,9 @@
     </div>
 
     <!-- ======================== Users Tab ======================== -->
-    <div v-if="isSuperAdmin" v-show="activeTab === 'tutorials'">
+    <div class="admin-workspace" v-if="isSuperAdmin" v-show="activeTab === 'tutorials'">
       <div class="manage-toolbar">
-        <el-select v-model="tutorialLevelId" filterable placeholder="选择关卡" @change="changeTutorialLevel">
+        <el-select aria-label="教程所属关卡" v-model="tutorialLevelId" filterable placeholder="选择关卡" @change="changeTutorialLevel">
           <el-option v-for="level in skillsList" :key="level.id" :label="level.name" :value="level.id" />
         </el-select>
         <el-button type="primary" :disabled="!tutorialLevelId" @click="openTutorialDialog()">新增教程</el-button>
@@ -101,52 +102,55 @@
       </el-table>
     </div>
 
-    <div v-if="isSuperAdmin" v-show="activeTab === 'users'">
+    <div class="admin-workspace" v-if="isSuperAdmin" v-show="activeTab === 'users'">
       <el-form class="manage-toolbar" @submit.prevent="searchUsers">
-        <el-input v-model="userSearch" clearable placeholder="用户名、昵称或邮箱" />
+        <el-input v-model="userSearch" aria-label="搜索用户名、昵称或邮箱" clearable @clear="searchUsers" placeholder="用户名、昵称或邮箱" />
         <el-button native-type="submit" type="primary" :loading="usersLoading">搜索用户</el-button>
       </el-form>
-      <el-table v-loading="usersLoading" :data="usersList" stripe empty-text="暂无用户">
-        <el-table-column prop="id" label="ID" width="55" />
-        <el-table-column label="用户" width="170">
-          <template #default="{ row }">
-            {{ row.name ? row.name + ' (' + row.username + ')' : row.username }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="email" label="邮箱" min-width="155" show-overflow-tooltip />
-        <el-table-column label="角色" width="90">
-          <template #default="{ row }">
-            <span class="role-tag" :class="row.role.toLowerCase()">{{ roleText(row.role) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="级别" width="260">
-          <template #default="{ row }">
-            <div class="level-cell">
-              <span class="level-badge" :class="'tier-'+getTierClass(row.level)">{{ levelTitle(row.level) }}</span>
-              <el-input-number v-if="row.role !== 'SUPERADMIN'" v-model="row._level" :min="0" :max="99" size="small" style="width:100px;margin-left:8px" controls-position="right" @change="v => setLevel(row.id, v)" />
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="totalXp" label="XP" width="80" align="center" />
-        <el-table-column label="操作" min-width="300">
-          <template #default="{ row }">
-            <span v-if="row.role === 'SUPERADMIN'">受保护</span>
-            <template v-else>
-            <el-select :model-value="row.role" :disabled="row._savingRole" size="small" style="width:85px" @change="v => updateRole(row, v)">
-              <el-option label="教师" value="TEACHER" />
-              <el-option label="内部" value="INTERNAL" />
-              <el-option label="游客" value="EXTERNAL" />
-            </el-select>
-            <el-button size="small" type="primary" text @click="openUserEdit(row)">编辑</el-button>
-            <el-button size="small" type="primary" text :loading="resettingUserId === row.id" @click="sendUserReset(row)">重置密码</el-button>
-            <el-button size="small" type="danger" text style="margin-left:6px" @click="removeUser(row)">删除</el-button>
-            </template>
-          </template>
-        </el-table-column>
-      </el-table>
-      <div style="display:flex;justify-content:center;margin-top:16px">
+      <div v-loading="usersLoading" class="directory">
+        <table class="directory-table" aria-label="用户列表">
+          <thead><tr><th>用户</th><th>角色</th><th>级别</th><th>操作</th></tr></thead>
+          <tbody>
+            <tr v-for="row in usersList" :key="row.id">
+              <td class="directory-identity">
+                <strong>{{ row.name || row.username }}</strong>
+                <small v-if="row.name">{{ row.username }}</small>
+                <span>{{ row.email || '未绑定邮箱' }}</span>
+                <small>#{{ row.id }} · {{ row.totalXp || 0 }} XP</small>
+              </td>
+              <td>
+                <span class="cell-label">角色</span>
+                <span v-if="row.role === 'SUPERADMIN'" class="role-tag superadmin">超级管理员</span>
+                <el-select v-else :model-value="row.role" :disabled="row._savingRole" :aria-label="row.username + ' 的角色'"
+                           size="small" @change="v => updateRole(row, v)">
+                  <el-option label="教师" value="TEACHER" /><el-option label="内部" value="INTERNAL" /><el-option label="游客" value="EXTERNAL" />
+                </el-select>
+              </td>
+              <td>
+                <span class="cell-label">级别</span>
+                <div class="directory-level">
+                  <span class="level-badge" :class="'tier-'+getTierClass(row.level)">{{ levelTitle(row.level) }}</span>
+                  <el-input-number v-if="row.role !== 'SUPERADMIN'" :model-value="row.level ?? 0" :disabled="row._savingLevel" :min="0" :max="99" size="small"
+                                   :aria-label="row.username + ' 的级别'" controls-position="right" @change="v => setLevel(row, v)" />
+                </div>
+              </td>
+              <td class="directory-actions">
+                <span v-if="row.role === 'SUPERADMIN'">账号受保护</span>
+                <template v-else>
+                  <el-button size="small" type="primary" text @click="openUserEdit(row)">编辑</el-button>
+                  <el-button size="small" type="primary" text :loading="resettingUserId === row.id" @click="sendUserReset(row)">重置密码</el-button>
+                  <el-button size="small" type="danger" text @click="removeUser(row)">删除</el-button>
+                </template>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <el-empty v-if="!usersList.length && !usersLoading" :description="appliedUserSearch ? '没有符合条件的用户' : '暂无用户'" />
+      </div>
+      <div class="directory-footer">
+        <span aria-live="polite">共 {{ totalUsers }} 位用户</span>
         <el-pagination
-          layout="prev, pager, next"
+          :pager-count="5" layout="prev, pager, next"
           :total="totalUsers"
           :page-size="userPageSize"
           :current-page="userPage"
@@ -195,7 +199,7 @@
     </el-dialog>
 
     <!-- ======================== Submissions Tab ======================== -->
-    <div v-show="activeTab === 'submissions'">
+    <div class="admin-workspace" v-show="activeTab === 'submissions'">
       <el-table :data="subsList" stripe empty-text="暂无提交记录">
         <el-table-column prop="id" label="ID" width="55" />
         <el-table-column label="用户" width="140">
@@ -221,7 +225,7 @@
     </div>
 
     <!-- ==================== Submission Detail Dialog ==================== -->
-    <el-dialog v-model="subDetailVisible" title="提交详情" width="800px" top="3vh">
+    <el-dialog v-model="subDetailVisible" title="提交详情" width="min(800px, 94vw)" top="3vh">
       <div v-if="subDetail" class="sub-detail">
         <el-descriptions :column="2" border size="small">
           <el-descriptions-item label="提交 ID">{{ subDetail.id }}</el-descriptions-item>
@@ -263,7 +267,7 @@
 
 
     <!-- ======================== Invite Codes Tab ======================== -->
-    <div v-show="activeTab === 'inviteCodes'">
+    <div class="admin-workspace" v-if="isSuperAdmin" v-show="activeTab === 'inviteCodes'">
       <div style="display:flex;gap:12px;margin-bottom:16px;align-items:center;flex-wrap:wrap">
         <el-input v-model="newInviteCode" placeholder="新邀请码" size="small" style="width:160px" />
         <el-input v-model="newInviteDesc" placeholder="描述（可选）" size="small" style="width:180px" />
@@ -301,7 +305,7 @@
     </div>
 
     <!-- ======================== Mentor Graph Tab ======================== -->
-    <div v-show="activeTab === 'mentorGraph'">
+    <div class="admin-workspace" v-if="isSuperAdmin" v-show="activeTab === 'mentorGraph'">
       <div style="display:flex;gap:12px;margin-bottom:16px;align-items:center;flex-wrap:wrap">
         <el-input v-model="mentorSearch" placeholder="搜索姓名或用户名，回车高亮其师承链" clearable size="small"
                   style="width:280px" @keyup.enter="highlightLineage" @clear="highlightLineage" />
@@ -318,7 +322,7 @@
     </div>
 
     <!-- ==================== Skill Edit Dialog ==================== -->
-    <el-dialog v-model="skillDialogVisible" :title="editingSkill?.id ? '编辑关卡' : '新增关卡'" width="900px" top="3vh" @close="editingSkill = null">
+    <el-dialog v-model="skillDialogVisible" :title="editingSkill?.id ? '编辑关卡' : '新增关卡'" width="min(900px, 94vw)" top="3vh" @close="editingSkill = null">
       <el-form v-if="skillForm" label-position="top">
         <el-form-item label="名称">
           <el-input v-model="skillForm.name" placeholder="如：认识你的工具箱" />
@@ -372,7 +376,7 @@
     </el-dialog>
 
     <!-- ==================== Task Edit Dialog ==================== -->
-    <el-dialog v-model="taskDialogVisible" :title="editingTask?.id ? '编辑任务' : '新增任务'" width="900px" top="3vh" @close="editingTask = null">
+    <el-dialog v-model="taskDialogVisible" :title="editingTask?.id ? '编辑任务' : '新增任务'" width="min(900px, 94vw)" top="3vh" @close="editingTask = null">
       <el-form v-if="taskForm" label-position="top">
         <el-form-item label="所属关卡">
           <el-select v-model="taskForm.levelId" style="width:100%" placeholder="选择关卡">
@@ -416,7 +420,6 @@
 
 <script setup>
 import { ref, onMounted, reactive, computed, watch, nextTick, onBeforeUnmount } from 'vue'
-import * as echarts from 'echarts'
 import { adminApi } from '../api/admin'
 import { tasksApi } from '../api/tasks'
 import { useAuthStore } from '../store/auth'
@@ -685,8 +688,19 @@ function getTierClass(lv) {
   return 'bronze'
 }
 
-async function setLevel(id, level) {
-  try { await adminApi.setLevel(id, level); ElMessage.success('级别已更新') } catch (e) { ElMessage.error(e.response?.data?.message || '更新失败'); fetchUsers() }
+async function setLevel(row, level) {
+  if (!Number.isInteger(level)) return
+  row._savingLevel = true
+  try {
+    await adminApi.setLevel(row.id, level)
+    row.level = level
+    ElMessage.success('级别已更新')
+  } catch (error) {
+    ElMessage.error(error.response?.data?.message || '更新失败')
+    await fetchUsers()
+  } finally {
+    row._savingLevel = false
+  }
 }
 
 // --- Submission detail ---
@@ -766,7 +780,7 @@ async function fetchUsers(page = userPage.value) {
     }
     userPage.value = page
     totalUsers.value = data.total
-    usersList.value = data.content.map(u => ({ ...u, _level: u.level || 0 }))
+    usersList.value = data.content
   } catch (error) {
     if (request === userListRequest) {
       ElMessage.error(error.response?.data?.message || '加载用户列表失败')
@@ -786,7 +800,7 @@ async function removeUser(row) {
     await adminApi.deleteUser(row.id)
     ElMessage.success('已删除')
     await fetchUsers()
-  } catch (e) { if (e !== 'cancel') ElMessage.error('删除失败') }
+  } catch (e) { if (e !== 'cancel' && e !== 'close') ElMessage.error('删除失败') }
 }
 function openUserEdit(row) {
   editingUserId.value = row.id
@@ -887,20 +901,19 @@ const graphRef = ref(null)
 const graphLoading = ref(false)
 const mentorSearch = ref('')
 let chart = null
+let echarts
 let rawNodes = []
 let rawEdges = []
-const roleLegends = [
-  { label: '教师', color: '#f56c6c' },
-  { label: '内部', color: '#409eff' },
-  { label: '游客', color: '#909399' }
-]
-const roleColor = { TEACHER: '#f56c6c', INTERNAL: '#409eff', EXTERNAL: '#909399' }
+const roleColor = { SUPERADMIN: '#ad792c', TEACHER: '#236451', INTERNAL: '#5983a1', EXTERNAL: '#7a8279' }
+const roleLegends = Object.entries(roleColor).map(([role, color]) => ({ label: roleText(role), color }))
 const graphEmpty = ref(false)
 
 async function fetchMentorGraph() {
+  if (graphLoading.value) return
   graphLoading.value = true
   try {
-    const res = await adminApi.getMentorshipGraph()
+    const [res, charts] = await Promise.all([adminApi.getMentorshipGraph(), import('echarts')])
+    echarts = charts
     const data = res.data.data || { nodes: [], edges: [] }
     rawNodes = data.nodes || []
     rawEdges = data.edges || []
@@ -921,7 +934,7 @@ function escapeHtml(value) {
 }
 
 function renderGraph() {
-  if (!graphRef.value) return
+  if (!graphRef.value || !echarts || activeTab.value !== 'mentorGraph') return
   if (!chart) {
     chart = echarts.init(graphRef.value)
     window.addEventListener('resize', resizeChart)
@@ -994,7 +1007,10 @@ function highlightLineage() { renderGraph() }
 function resizeChart() { chart && chart.resize() }
 
 watch(activeTab, tab => {
-  if (tab === 'mentorGraph' && !chart) fetchMentorGraph()
+  if (tab === 'mentorGraph') {
+    if (!chart) fetchMentorGraph()
+    else nextTick(resizeChart)
+  }
 })
 
 onBeforeUnmount(() => {
@@ -1010,21 +1026,58 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.admin-page { max-width: 1300px; }
-.admin-header { margin-bottom: 24px; }
-.admin-title { font-size: 24px; font-weight: 700; color: var(--color-text); margin: 0 0 4px; }
+.admin-page { max-width: 1400px; margin-inline: auto; container: staff / inline-size; }
+.admin-header { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; margin-bottom: 22px; }
+.staff-identity { display: flex; align-items: center; gap: 7px; color: var(--color-text-secondary); font-size: 12px; font-weight: 600; }
+.staff-identity::before { content: ''; width: 15px; height: 3px; background: var(--color-accent); border-radius: 2px; }
+.admin-title { font-size: clamp(26px, 3vw, 36px); line-height: 1.2; letter-spacing: -.04em; }
+.admin-tabs { margin-bottom: 14px; padding: 0 14px; border: 1px solid var(--color-border); border-radius: 10px; background: #edefe5; }
+.admin-tabs :deep(.el-tabs__header) { margin: 0; }
+.admin-tabs :deep(.el-tabs__nav-wrap::after) { height: 0; }
+.admin-tabs :deep(.el-tabs__item) { height: 45px; }
+.admin-tabs :deep(.el-tabs__content) { display: none; }
+.admin-workspace { min-width: 0; padding: clamp(12px, 1.6vw, 24px); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
+.directory { overflow: hidden; border: 1px solid var(--color-border); border-radius: 9px; }
+.directory-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+.directory-table th { padding: 10px 12px; background: #eff3e9; color: #485f50; font-weight: 600; }
+.directory-table td { padding: 10px 12px; border-top: 1px solid var(--color-border); }
+.directory-table tr:nth-child(even) td { background: #f8f9f3; }
+.directory-table .el-select { width: 87px; }
+.directory-table .el-input-number { width: 78px; }
+.directory-identity :is(strong, small, span) { display: block; line-height: 1.55; overflow-wrap: anywhere; }
+.directory-identity small, .directory-identity span, .directory-actions > span, .directory-footer { color: var(--color-text-secondary); }
+.directory-level { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; }
+.directory-actions { white-space: nowrap; }
+.directory-actions .el-button { margin: 0; min-height: 30px; padding-inline: 7px; }
+.directory-footer { margin-top: 18px; display: flex; justify-content: space-between; align-items: center; gap: 5px 12px; flex-wrap: wrap; font-size: 13px; }
+.cell-label { display: none; }
+@container staff (max-width: 840px) {
+  .directory { border: 0; border-radius: 0; }
+  .directory-table, .directory-table tbody { display: block; }
+  .directory-table thead { position: absolute; clip-path: inset(50%); width: 1px; height: 1px; overflow: hidden; }
+  .directory-table tbody { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 10px; }
+  .directory-table tbody tr { display: grid; grid-template-columns: minmax(75px, .62fr) minmax(120px, 1fr); place-content: start; gap: 8px; border: 1px solid var(--color-border); border-radius: 10px; padding: 12px; }
+  .directory-table td, .directory-table tr:nth-child(even) td { display: block; padding: 0; background: transparent; border: 0; }
+  .directory-identity, .directory-actions { grid-column: 1 / -1; }
+  .cell-label { display: block; font-size: 11px; margin: 3px 0; color: var(--color-text-secondary); }
+  .directory-actions .el-button { min-height: 40px; padding-inline: 10px; }
+  .admin-workspace :deep(.el-table-fixed-column--right) { position: static !important; }
+  .admin-workspace :deep(.el-table-fixed-column--right::before) { display: none; }
+}
+@media (max-width: 480px) {
+  .directory-footer { justify-content: center; }
+  .admin-workspace :deep(.el-pagination) { --el-pagination-button-width: 26px; }
+  .admin-workspace :deep(.el-pagination.is-background li) { margin-inline: 2px; }
+}
 .manage-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; }
 .manage-toolbar :is(.el-select, .el-input) { width: min(320px, 100%); }
 
 .lv-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
 .lv-badge.lv-1, .lv-badge.lv-2 { background: #f1f5f9; color: #64748b; }
-.lv-badge.lv-3 { background: #fef3c7; color: #d97706; }
+.lv-badge.lv-3 { background: #fef3c7; color: #915709; }
 .lv-badge.lv-4, .lv-badge.lv-5 { background: #fee2e2; color: #dc2626; }
 .role-tag { font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
-.role-tag.teacher { background: #ede9fe; color: #7c3aed; }
 .role-tag.superadmin { background: #fef3c7; color: #92400e; }
-.role-tag.internal { background: #eef2ff; color: #6366f1; }
-.role-tag.external { background: #f1f5f9; color: #64748b; }
 .preview-text { font-size: 13px; color: #64748b; }
 
 /* --- Submission detail --- */
@@ -1050,15 +1103,14 @@ onMounted(async () => {
 .sub-comment-text { font-size: 14px; color: #475569; white-space: pre-wrap; line-height: 1.7; }
 .sub-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .sub-status-tag { font-size: 12px; font-weight: 500; padding: 2px 10px; border-radius: 4px; white-space: nowrap; }
-.sub-status-tag.approved { background: #dcfce7; color: #16a34a; }
+.sub-status-tag.approved { background: #dcfce7; color: #19713e; }
 .sub-status-tag.rejected { background: #fee2e2; color: #dc2626; }
-.sub-status-tag.pending { background: #fef3c7; color: #d97706; }
-.sub-status-tag.ai_reviewed { background: #e0f2fe; color: #0284c7; }
+.sub-status-tag.pending { background: #fef3c7; color: #915709; }
+.sub-status-tag.ai_reviewed { background: #e0f2fe; color: #0b6391; }
 
 /* --- Tutorial manager --- */
 
 /* Level badges */
-.level-cell { display: flex; align-items: center; }
 .level-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
 .level-badge.tier-bronze { background: #fdf2f8; color: #be185d; }
 .level-badge.tier-silver { background: #f1f5f9; color: #475569; }

@@ -1,6 +1,6 @@
 <template>
   <div class="chat-page" v-loading="loadingConversations">
-    <div class="chat-layout">
+    <div class="chat-layout" :class="{ reading: activeId }">
       <!-- 会话列表 -->
       <div class="conv-list">
         <div class="conv-header">
@@ -10,29 +10,30 @@
         <div v-if="!conversations.length && !loadingConversations" class="conv-empty">
           <el-empty description="暂无会话" :image-size="60" />
         </div>
-        <div v-for="conv in conversations" :key="conv.id"
+        <button type="button" v-for="conv in conversations" :key="conv.id"
              class="conv-item" :class="{ active: activeId === conv.id }"
-             @click="selectConversation(conv)">
-          <div class="conv-avatar" :class="{ group: conv.type === 'GROUP' }">
+             :aria-current="activeId === conv.id ? 'true' : null" @click="selectConversation(conv)">
+          <span class="conv-avatar" :class="{ group: conv.type === 'GROUP' }">
             {{ conv.type === 'GROUP' ? '群' : (conv.name || '?').charAt(0) }}
-          </div>
-          <div class="conv-info">
-            <div class="conv-name-row">
+          </span>
+          <span class="conv-info">
+            <span class="conv-name-row">
               <span class="conv-name">{{ conv.name }}</span>
               <span v-if="conv.unreadCount > 0" class="conv-unread">{{ conv.unreadCount > 99 ? '99+' : conv.unreadCount }}</span>
-            </div>
-            <div class="conv-last">
+            </span>
+            <span class="conv-last">
               <span class="conv-last-text">{{ conv.lastMessage ? (conv.lastSenderName + '：' + conv.lastMessage) : '暂无消息' }}</span>
               <span v-if="conv.lastMessageAt" class="conv-time">{{ shortTime(conv.lastMessageAt) }}</span>
-            </div>
-          </div>
-        </div>
+            </span>
+          </span>
+         </button>
       </div>
 
       <!-- 消息区 -->
       <div class="msg-panel">
         <div class="msg-header">
-          <span>{{ activeConv?.name || '选择会话' }}</span>
+          <button type="button" class="back-to-list" aria-label="返回会话列表" @click="activeId = null">‹ 会话</button>
+          <strong>{{ activeConv?.name || '选择会话' }}</strong>
           <span v-if="activeConv" class="msg-header-sub">
             {{ activeConv.type === 'GROUP' ? '师门群聊，师傅与所有徒弟可见' : '师徒私聊' }}
           </span>
@@ -60,7 +61,7 @@
         <div class="msg-input">
           <el-input v-model="draft" type="textarea" :rows="3" resize="none"
                     placeholder="输入消息，Enter 发送，Shift+Enter 换行"
-                    @keydown.enter.exact.prevent="send"
+                    @keydown.enter.exact="handleEnter"
                     :disabled="!activeId" />
           <div class="input-footer">
             <span class="input-tip">{{ activeId ? '' : '先选择一个会话' }}</span>
@@ -95,7 +96,11 @@ const messages = ref([])
 const page = ref(0)
 const hasMore = ref(false)
 const loadingOlder = ref(false)
-const draft = ref('')
+const drafts = ref({})
+const draft = computed({
+  get: () => drafts.value[activeId.value] || '',
+  set: value => { if (activeId.value) drafts.value[activeId.value] = value }
+})
 const sending = ref(false)
 const msgListEl = ref(null)
 let stickBottom = true
@@ -131,7 +136,7 @@ async function fetchConversations() {
   try {
     const res = await chatApi.conversations()
     conversations.value = res.data.data || []
-    if (conversations.value.length && !activeId.value) {
+    if (conversations.value.length && !activeId.value && !window.matchMedia('(max-width: 720px)').matches) {
       selectConversation(conversations.value[0])
     }
     chatStore.refreshUnread()
@@ -150,6 +155,7 @@ async function selectConversation(conv) {
   hasMore.value = false
   stickBottom = true
   await loadMessages()
+  if (activeId.value !== conv.id) return
   chatApi.markRead(conv.id).catch(() => {})
   conv.unreadCount = 0
   chatStore.refreshUnread()
@@ -226,29 +232,36 @@ function scrollToBottom() {
   if (el) el.scrollTop = el.scrollHeight
 }
 
+function handleEnter(event) {
+  if (event.isComposing || event.keyCode === 229) return
+  event.preventDefault()
+  send()
+}
+
 async function send() {
   const text = draft.value.trim()
-  if (!text || !activeId.value) return
+  const id = activeId.value
+  if (!text || !id || sending.value) return
   sending.value = true
   try {
-    const res = await chatApi.send(activeId.value, text)
+    const res = await chatApi.send(id, text)
     const dto = res.data.data
     const existing = messages.value.find(m => m.id === dto.id)
-    if (!existing) {
+    if (activeId.value === id && !existing) {
       messages.value.push(dto)
       stickBottom = true
       await nextTick()
       scrollToBottom()
     }
-    draft.value = ''
-    const conv = conversations.value.find(c => c.id === activeId.value)
+    if (drafts.value[id]?.trim() === text) delete drafts.value[id]
+    const conv = conversations.value.find(c => c.id === id)
     if (conv) {
       conv.lastMessage = dto.content
       conv.lastSenderName = dto.senderName
       conv.lastMessageAt = dto.createdAt
       conv.unreadCount = 0
     }
-    chatApi.markRead(activeId.value).catch(() => {})
+    chatApi.markRead(id).catch(() => {})
     chatStore.refreshUnread()
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '发送失败')
@@ -321,7 +334,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.chat-page { height: calc(100vh - 64px); max-width: 1200px; }
+.chat-page { height: calc(100dvh - 96px); min-height: 360px; max-width: 1200px; margin: auto; }
 .chat-layout {
   display: flex;
   height: 100%;
@@ -329,6 +342,7 @@ onBeforeUnmount(() => {
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
+  border: 1px solid var(--color-border);
 }
 
 /* 会话列表 */
@@ -348,27 +362,28 @@ onBeforeUnmount(() => {
 }
 .conv-count {
   font-size: 12px; color: var(--color-text-secondary);
-  background: #f1f5f9; padding: 2px 8px; border-radius: 10px;
+  background: #edf0e9; padding: 2px 8px; border-radius: 10px;
 }
 .conv-empty { padding: 30px 10px; }
 .conv-item {
+  font: inherit; text-align: left; width: 100%; background: transparent; border: 0; border-inline-start: 3px solid transparent;
   display: flex; gap: 12px;
   padding: 14px 18px;
   cursor: pointer;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #edf0e9;
   transition: background .15s;
 }
-.conv-item:hover { background: #f8fafc; }
-.conv-item.active { background: #eef2ff; }
+.conv-item:hover { background: #f5f6f0; }
+.conv-item.active { background: #edf5ee; border-inline-start-color: #397455; }
 
 .conv-avatar {
   width: 40px; height: 40px; border-radius: 50%;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  background: linear-gradient(135deg, #216354, #397c67);
   color: #fff; font-size: 15px; font-weight: 600;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
-.conv-avatar.group { background: linear-gradient(135deg, #22c55e, #16a34a); }
+.conv-avatar.group { background: linear-gradient(135deg, #3b825f, #30684b); }
 
 .conv-info { flex: 1; min-width: 0; }
 .conv-name-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
@@ -382,7 +397,7 @@ onBeforeUnmount(() => {
 }
 .conv-last {
   display: flex; justify-content: space-between; gap: 8px;
-  margin-top: 4px; font-size: 12px; color: #94a3b8;
+  margin-top: 4px; font-size: 12px; color: #667568;
 }
 .conv-last-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .conv-time { flex-shrink: 0; }
@@ -394,15 +409,15 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid var(--color-border);
   display: flex; align-items: baseline; gap: 10px;
 }
-.msg-header > span:first-child { font-size: 15px; font-weight: 700; }
-.msg-header-sub { font-size: 12px; color: #94a3b8; }
+.msg-header strong { font-size: 15px; font-weight: 700; }
+.msg-header-sub { font-size: 12px; color: #667568; }
 
 .msg-list {
   flex: 1;
   overflow-y: auto;
   padding: 18px 20px;
   display: flex; flex-direction: column; gap: 14px;
-  background: #fafbfc;
+  background: #f7f7f2;
 }
 .load-more { text-align: center; }
 .msg-empty { margin: auto; }
@@ -410,21 +425,21 @@ onBeforeUnmount(() => {
 .msg-row { display: flex; }
 .msg-row.mine { justify-content: flex-end; }
 .msg-bubble-wrap { max-width: 70%; }
-.msg-sender { font-size: 12px; color: #94a3b8; margin-bottom: 3px; }
-.msg-role { color: #d97706; }
+.msg-sender { font-size: 12px; color: #667568; margin-bottom: 3px; }
+.msg-role { color: #895b19; }
 .msg-bubble {
   padding: 10px 14px;
   border-radius: 12px;
   background: #fff;
   border: 1px solid var(--color-border);
-  font-size: 14px; line-height: 1.6; color: #1e293b;
+  font-size: 14px; line-height: 1.6; color: #263b31;
   white-space: pre-wrap; word-break: break-word;
 }
 .msg-row.mine .msg-bubble {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  background: linear-gradient(135deg, #216354, #397c67);
   color: #fff; border: none;
 }
-.msg-time { font-size: 11px; color: #cbd5e1; margin-top: 3px; }
+.msg-time { font-size: 11px; color: #68786e; margin-top: 3px; }
 .msg-row.mine .msg-time { text-align: right; }
 
 .msg-input {
@@ -433,5 +448,17 @@ onBeforeUnmount(() => {
   display: flex; flex-direction: column; gap: 8px;
 }
 .input-footer { display: flex; justify-content: space-between; align-items: center; }
-.input-tip { font-size: 12px; color: #cbd5e1; }
+.input-tip { font-size: 12px; color: #bfcbbf; }
+
+.back-to-list { display: none; }
+@media(max-width:720px) {
+  .chat-page { height: calc(100dvh - 96px); }
+  .conv-list { width: 100%; border: 0; }
+  .chat-layout:not(.reading) .msg-panel, .reading .conv-list { display: none; }
+  .back-to-list { display: block; background: transparent; border: 0; color: #216354; font: inherit; padding: 7px 3px; cursor: pointer; }
+  .msg-header { padding: 9px 13px; flex-wrap: wrap; gap: 7px 12px; }
+  .msg-header-sub { flex-basis: 100%; }
+  .msg-list { padding: 12px; }
+  .msg-bubble-wrap { max-width: 86%; }
+}
 </style>

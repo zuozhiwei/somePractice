@@ -4,7 +4,7 @@
 
     <!-- ========== Apply for mentor (compact, top; 外部成员不可拜师) ========== -->
     <div v-if="!isExternal" class="section-card" style="margin-bottom:20px">
-      <div class="section-header">🔍 申请师傅</div>
+      <div class="section-header">申请师傅</div>
       <div class="section-body">
         <div class="request-row">
           <el-select v-model="mentorId" filterable remote :remote-method="searchUsers"
@@ -13,7 +13,7 @@
                      loading-text="搜索中..."
                      no-match-text="无匹配用户"
                      no-data-text="输入关键词开始搜索"
-                     size="default" style="width:320px" value-key="id">
+                     size="default" class="mentor-search" value-key="id">
             <el-option v-for="u in searchResults" :key="u.id"
                        :label="`${u.name || u.username}（${levelShort(u.level)} · ${roleText(u.role)} · ${u.totalXp} XP）`"
                        :value="u.id">
@@ -34,7 +34,7 @@
     <!-- ========== Sent requests (as apprentice; 游客不可见) ========== -->
     <div v-if="!isExternal && sentRequests.length" class="section-card" style="margin-bottom:20px">
       <div class="section-header">
-        <span>📤 我发出的申请</span>
+        <span>我发出的申请</span>
         <span class="count-badge">{{ sentRequests.length }} 条</span>
       </div>
       <div class="section-body">
@@ -80,7 +80,7 @@
       <div v-if="levels.length" class="section-body timeline-body">
         <div
           ref="timelineViewport"
-          class="timeline-viewport"
+          class="timeline-viewport" tabindex="0" role="region" aria-label="徒弟关卡时间线，可左右滚动"
           :class="{ dragging: timelineDragging }"
           @pointerdown="startTimelineDrag"
           @pointermove="moveTimelineDrag"
@@ -196,7 +196,7 @@
     <div class="section-card">
       <div class="section-body" style="padding:0">
         <el-tabs v-model="subTab" @tab-change="onSubTabChange">
-          <el-tab-pane label="📝 我的提交" name="my" />
+          <el-tab-pane label="我的提交" name="my" />
           <el-tab-pane v-if="apprentices.length" label="👨‍🎓 徒弟提交" name="apprentice" />
           <el-tab-pane v-if="isInternal" label="🌐 外部提交" name="external" />
         </el-tabs>
@@ -308,7 +308,7 @@
     </div>
 
     <!-- Review Dialog -->
-    <el-dialog v-model="reviewVisible" title="审核提交" width="800px" top="3vh">
+    <el-dialog v-model="reviewVisible" title="审核提交" width="min(800px, calc(100% - 24px))" top="3vh">
       <div v-if="reviewSub" class="review-detail">
         <el-descriptions :column="2" border size="small">
           <el-descriptions-item label="提交 ID">{{ reviewSub.id }}</el-descriptions-item>
@@ -777,30 +777,30 @@ onMounted(async () => {
 
 <style scoped>
 .page { max-width: 1000px; }
-.count-badge { font-size: 12px; color: var(--color-text-secondary); background: #f1f5f9; padding: 2px 10px; border-radius: 10px; }
+.count-badge { font-size: 12px; color: var(--color-text-secondary); background: #edf0e9; padding: 2px 10px; border-radius: 10px; }
 
 .person-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--color-border); }
 .person-row:last-child { border-bottom: none; }
-.person-avatar { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; font-weight: 600; font-size: 13px; }
-.person-avatar.apprentice { background: linear-gradient(135deg, #22c55e, #16a34a); }
+.person-avatar { background: linear-gradient(135deg, #216354, #397c67); color: #fff; font-weight: 600; font-size: 13px; }
+.person-avatar.apprentice { background: linear-gradient(135deg, #3b825f, #30684b); }
 .person-info { flex: 1; }
 .person-name { font-size: 14px; font-weight: 500; color: var(--color-text); }
-.level-badge { font-size: 11px; font-weight: 600; color: #6366f1; background: #eef2ff; padding: 2px 6px; border-radius: 4px; margin-left: 6px; }
+.level-badge { font-size: 11px; font-weight: 600; color: #216354; background: #edf5ee; padding: 2px 6px; border-radius: 4px; margin-left: 6px; }
 
 .request-row { display: flex; gap: 12px; align-items: center; }
 
-.person-meta { font-size: 12px; color: #94a3b8; margin-top: 2px; }
-.invite-tip { font-size: 12px; color: #6366f1; background: #eef2ff; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; }
+.person-meta { font-size: 12px; color: #667568; margin-top: 2px; }
+.invite-tip { font-size: 12px; color: #216354; background: #edf5ee; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; }
 .apprentice-list { max-height: 400px; overflow-y: auto; }
 
 /* Apprentice progress timeline */
 .timeline-header { gap: 16px; }
-.section-hint { margin-top: 4px; font-size: 12px; font-weight: 400; color: #94a3b8; }
+.section-hint { margin-top: 4px; font-size: 12px; font-weight: 400; color: #667568; }
 .timeline-body { padding-top: 20px; }
 .timeline-viewport {
   overflow-x: auto; overflow-y: hidden; padding: 14px 20px 14px;
   cursor: grab; user-select: none; touch-action: pan-x;
-  scrollbar-color: #c7d2fe #f8fafc; scrollbar-width: thin;
+  scrollbar-color: #bed2bf #f5f6f0; scrollbar-width: thin;
 }
 .timeline-viewport.dragging { cursor: grabbing; }
 .timeline-track { position: relative; }
@@ -812,13 +812,13 @@ onMounted(async () => {
 }
 .timeline-progress-marker {
   display: flex; align-items: center; gap: 4px; max-width: 144px;
-  color: #16a34a; font-size: 11px; font-weight: 600; white-space: nowrap;
+  color: #30684b; font-size: 11px; font-weight: 600; white-space: nowrap;
 }
 .timeline-progress-marker span { overflow: hidden; text-overflow: ellipsis; }
 .timeline-axis { position: relative; display: flex; height: 128px; align-items: flex-start; }
 .timeline-axis-line {
   position: absolute; left: 66px; right: 66px; top: 27px; height: 4px;
-  border-radius: 4px; background: linear-gradient(90deg, #c7d2fe, #ddd6fe, #c7d2fe);
+  border-radius: 4px; background: linear-gradient(90deg, #bed2bf, #cfddc9, #bed2bf);
 }
 .timeline-item {
   position: relative; flex: 0 0 auto; height: 128px;
@@ -829,51 +829,51 @@ onMounted(async () => {
 .timeline-dot {
   position: relative; z-index: 1; width: 30px; height: 30px; margin: 12px auto 14px;
   display: flex; align-items: center; justify-content: center; border-radius: 50%;
-  color: #6366f1; background: #fff; border: 3px solid #a5b4fc;
-  box-shadow: 0 2px 7px rgba(99,102,241,.2); font-size: 11px; font-weight: 700;
+  color: #216354; background: #fff; border: 3px solid #a0bfac;
+  box-shadow: 0 2px 7px rgba(29,82,61,.14); font-size: 11px; font-weight: 700;
 }
 .timeline-task-tick {
   width: 8px; height: 15px; display: inline-block; border-radius: 3px;
-  background: #cbd5e1; box-shadow: inset 0 -2px 0 rgba(100,116,139,.18);
+  background: #bfcbbf; box-shadow: inset 0 -2px 0 rgba(100,116,139,.18);
 }
 .timeline-task-item .timeline-task-tick { margin: 20px 0 20px; }
-.timeline-task-tick.partial { background: #fbbf24; box-shadow: inset 0 -2px 0 rgba(180,83,9,.2); }
-.timeline-task-tick.completed { background: #22c55e; box-shadow: inset 0 -2px 0 rgba(21,128,61,.25); }
+.timeline-task-tick.partial { background: #d9a753; box-shadow: inset 0 -2px 0 rgba(180,83,9,.2); }
+.timeline-task-tick.completed { background: #3b825f; box-shadow: inset 0 -2px 0 rgba(21,128,61,.25); }
 .timeline-level-name {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   padding: 0 8px; color: var(--color-text); font-size: 13px; font-weight: 600;
 }
-.timeline-task-index { color: #94a3b8; font-size: 10px; white-space: nowrap; }
-.timeline-level-map { margin-top: 5px; color: #94a3b8; font-size: 11px; }
+.timeline-task-index { color: #667568; font-size: 10px; white-space: nowrap; }
+.timeline-level-map { margin-top: 5px; color: #667568; font-size: 11px; }
 .timeline-legend {
   display: flex; justify-content: space-between; align-items: center; margin-top: 2px;
-  color: #94a3b8; font-size: 12px;
+  color: #667568; font-size: 12px;
 }
-.timeline-legend span:first-child { display: inline-flex; align-items: center; gap: 6px; color: #64748b; }
+.timeline-legend span:first-child { display: inline-flex; align-items: center; gap: 6px; color: #58685d; }
 .legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-.apprentice-dot { background: #22c55e; box-shadow: 0 0 0 3px #dcfce7; }
+.apprentice-dot { background: #3b825f; box-shadow: 0 0 0 3px #e0efe6; }
 .timeline-task-legend { display: inline-flex; align-items: center; gap: 4px; }
 .legend-task { width: 7px; height: 11px; border-radius: 2px; display: inline-block; margin-left: 3px; }
-.pending-task { background: #cbd5e1; }
-.partial-task { background: #fbbf24; }
-.done-task { background: #22c55e; }
+.pending-task { background: #bfcbbf; }
+.partial-task { background: #d9a753; }
+.done-task { background: #3b825f; }
 
 .status-tag { font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
-.status-tag.approved { background: #dcfce7; color: #16a34a; }
+.status-tag.approved { background: #e0efe6; color: #30684b; }
 .status-tag.rejected { background: #fee2e2; color: #dc2626; }
-.status-tag.pending { background: #fef3c7; color: #d97706; }
+.status-tag.pending { background: #faf0d7; color: #895b19; }
 .status-tag.ai_reviewed { background: #e0f2fe; color: #0284c7; }
-.fb-text { font-size: 13px; color: #64748b; }
-.external-tip { font-size: 12px; color: #6366f1; background: #eef2ff; padding: 8px 12px; margin: 12px; border-radius: 8px; }
+.fb-text { font-size: 13px; color: #58685d; }
+.external-tip { font-size: 12px; color: #216354; background: #edf5ee; padding: 8px 12px; margin: 12px; border-radius: 8px; }
 
 /* Review detail */
 .review-detail { display: flex; flex-direction: column; gap: 16px; }
-.sub-section { padding: 14px 16px; background: #f8fafc; border-radius: 10px; }
+.sub-section { padding: 14px 16px; background: #f5f6f0; border-radius: 10px; }
 .sub-section-title { font-size: 13px; font-weight: 600; color: var(--color-text); margin-bottom: 10px; }
 .sub-md-preview { font-size: 14px; line-height: 1.8; color: #334155; }
-.sub-md-preview :deep(img) { max-width: 100%; border-radius: 6px; border: 1px solid #e2e8f0; }
-.sub-md-preview :deep(pre) { background: #1e293b; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 13px; }
-.sub-md-preview :deep(code) { font-size: 13px; background: #f1f5f9; padding: 1px 4px; border-radius: 3px; }
+.sub-md-preview :deep(img) { max-width: 100%; border-radius: 6px; border: 1px solid #dce2d7; }
+.sub-md-preview :deep(pre) { background: #263b31; color: #dce2d7; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 13px; }
+.sub-md-preview :deep(code) { font-size: 13px; background: #edf0e9; padding: 1px 4px; border-radius: 3px; }
 .sub-md-preview :deep(pre code) { background: none; padding: 0; color: inherit; }
 .ai-feedback { background: #f0f9ff; border: 1px solid #bae6fd; }
 .sub-ai-text { font-size: 14px; color: #0c4a6e; white-space: pre-wrap; line-height: 1.7; }
@@ -881,7 +881,17 @@ onMounted(async () => {
 
 /* Search select dropdown */
 .search-option { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-.search-option-name { font-weight: 500; color: #1e293b; }
-.search-option-meta { font-size: 12px; color: #94a3b8; flex-shrink: 0; margin-left: 12px; }
-.search-empty { padding: 12px; text-align: center; color: #94a3b8; font-size: 13px; }
+.search-option-name { font-weight: 500; color: #263b31; }
+.search-option-meta { font-size: 12px; color: #667568; flex-shrink: 0; margin-left: 12px; }
+.search-empty { padding: 12px; text-align: center; color: #667568; font-size: 13px; }
+
+.mentor-search { width: min(320px,100%); }
+.timeline-viewport:focus-visible { outline: 2px solid var(--el-color-primary); }
+@media(max-width:720px) {
+  .request-row,.sub-actions,.timeline-legend { flex-wrap: wrap; }
+  .request-row .mentor-search { width: 100%; }
+  .person-info { min-width: 0; overflow-wrap: anywhere; }
+  .timeline-viewport { padding-inline: 8px; }
+  .section-header { flex-wrap: wrap; gap: 8px; }
+}
 </style>

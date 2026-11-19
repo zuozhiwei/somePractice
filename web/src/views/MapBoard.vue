@@ -2,11 +2,11 @@
   <div class="page map-board">
     <div class="page-title-row">
       <div>
-        <h1 class="page-title">📖 冒险之旅</h1>
-        <p class="page-subtitle">七大章节 · 从「初出茅庐」到「独当一面」，一页一页翻开你的成长故事</p>
+        <h1 class="page-title">章节手册</h1>
+        <p class="page-subtitle">{{ maps.length }} 个章节 · {{ store.totalLevels }} 个关卡</p>
       </div>
       <div class="xp-chip">
-        <span class="xp-icon">⚡</span>
+
         <div>
           <div class="xp-value">{{ store.totalXp }}</div>
           <div class="xp-label">总经验 XP</div>
@@ -21,10 +21,10 @@
           <span class="gp-label">冒险进度</span>
           <span class="gp-value">{{ store.completedLevels }} / {{ store.totalLevels }} 关</span>
         </div>
-        <div class="gp-current" v-if="store.currentMap">📍 当前章节：{{ store.currentMap }}</div>
-        <el-button v-if="currentChapter" size="small" round class="gp-go" @click="continueLearning">▶ 继续学习</el-button>
+        <div class="gp-current" v-if="store.currentMap">当前章节 · {{ store.currentMap }}</div>
+        <el-button v-if="currentChapter" size="small" round class="gp-go" @click="continueLearning">继续学习</el-button>
       </div>
-      <el-progress :percentage="store.overallPct" :stroke-width="10" :show-text="false" color="#6366f1" />
+      <el-progress :percentage="store.overallPct" :stroke-width="10" :show-text="false" color="#216354" />
     </div>
 
     <!-- 章节时间轴 -->
@@ -36,22 +36,23 @@
 
         <div class="tl-chapter-card" :class="{ locked: map.status === 'LOCKED' }">
           <div class="tl-chapter-head">
-            <div class="tl-chapter-title-line">
+            <button type="button" class="tl-chapter-title-line" :aria-expanded="expandedId === map.id" @click="toggleChapter(map)">
               <span class="tl-chapter-index">第 {{ mi + 1 }} 章</span>
               <span class="tl-chapter-name">{{ map.icon }} {{ map.name }}</span>
               <span class="tl-status" :class="map.status.toLowerCase()">
-                {{ map.status === 'COMPLETED' ? '✅ 已通关' : map.status === 'LOCKED' ? '🔒 未解锁' : '🚀 进行中' }}
+                {{ map.status === 'COMPLETED' ? '已通关' : map.status === 'LOCKED' ? '未解锁' : '进行中' }}
               </span>
               <span class="tl-count">{{ map.levelsCompleted }}/{{ map.totalLevels }} 关</span>
-            </div>
+              <span class="chapter-chevron" :class="{ open: expandedId === map.id }" aria-hidden="true">⌄</span>
+            </button>
             <div class="tl-chapter-desc">{{ map.description }}</div>
-            <div class="tl-story" :class="{ locked: map.status === 'LOCKED' }">
-              {{ map.status === 'LOCKED' ? '这段故事还藏在迷雾中……通关前一章后，你才能翻开它。' : map.story }}
+            <div v-if="expandedId === map.id && (map.story || map.status === 'LOCKED')" class="tl-story" :class="{ locked: map.status === 'LOCKED' }">
+              {{ map.status === 'LOCKED' ? '完成前置关卡后解锁。' : map.story }}
             </div>
           </div>
 
           <!-- 关卡子项 -->
-          <div class="tl-levels">
+          <div v-if="expandedId === map.id" class="tl-levels" v-loading="loadingIds.has(map.id)">
             <div v-for="lv in levelsOf(map.id)" :key="lv.id" class="tl-level"
                  :class="[{ current: map.currentLevelId === lv.id }, lv.status.toLowerCase()]">
               <div class="tl-level-dot" :class="lv.status.toLowerCase()">
@@ -61,7 +62,7 @@
                 <div class="tl-level-title-row">
                   <span class="tl-level-name">{{ lv.name }}</span>
                   <span class="tl-level-xp">+{{ lv.xpReward }} XP</span>
-                  <span v-if="map.currentLevelId === lv.id" class="tl-level-now">▶ 当前</span>
+                  <span v-if="map.currentLevelId === lv.id" class="tl-level-now">当前关卡</span>
                 </div>
                 <div class="tl-level-meta">
                   <span class="tl-level-status" :class="lv.status.toLowerCase()">
@@ -72,27 +73,29 @@
               </div>
               <div class="tl-level-actions">
                 <template v-if="lv.status !== 'LOCKED'">
-                  <el-button size="small" round @click.stop="submitForLevel(map, lv)">📤 提交</el-button>
+                  <el-button size="small" round @click.stop="submitForLevel(lv)">提交作业</el-button>
                   <el-button size="small" type="primary" round @click.stop="goLevel(lv)">进入关卡</el-button>
                 </template>
-                <el-button v-else size="small" round disabled>🔒 未解锁</el-button>
+                <el-button v-else size="small" round disabled>未解锁</el-button>
               </div>
             </div>
-            <div v-if="!levelsOf(map.id).length" class="tl-level-empty">本章暂无内容</div>
+            <div v-if="errors.has(map.id)" class="tl-level-empty">关卡载入失败 <el-button text @click="loadLevels(map.id)">重试</el-button></div>
+            <div v-else-if="levelsByMap.has(map.id) && !levelsOf(map.id).length" class="tl-level-empty">本章暂无关卡</div>
           </div>
         </div>
       </div>
-      <el-empty v-if="!loading && !maps.length" description="暂无冒险章节" />
+      <div v-if="loadFailed" class="tl-level-empty">无法载入章节 <el-button text @click="load">重试</el-button></div>
+      <el-empty v-else-if="!loading && !maps.length" description="暂无章节" />
     </div>
 
     <!-- 多任务时选择提交哪个 -->
-    <el-dialog v-model="taskPickerVisible" title="选择要提交的任务" width="440px">
+    <el-dialog v-model="taskPickerVisible" title="选择要提交的任务" width="min(440px, calc(100% - 24px))">
       <div class="task-picker-list">
-        <div v-for="t in pickableTasks" :key="t.id" class="task-picker-item" @click="pickTask(t)">
+        <button type="button" v-for="t in pickableTasks" :key="t.id" class="task-picker-item" @click="pickTask(t)">
           <span class="task-picker-title">{{ t.title }}</span>
           <span class="task-picker-xp">+{{ t.xpReward }} XP</span>
           <span class="task-picker-arrow">›</span>
-        </div>
+        </button>
         <el-empty v-if="!pickableTasks.length" description="该关卡任务均已通过，去下一关吧" :image-size="60" />
       </div>
     </el-dialog>
@@ -102,7 +105,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { mapsApi } from '../api/maps'
 import { useMapStore } from '../store/map'
@@ -112,7 +115,11 @@ import TaskSubmitDialog from '../components/TaskSubmitDialog.vue'
 const router = useRouter()
 const store = useMapStore()
 
-const maps = ref([])
+const maps = computed(() => store.progress?.maps || [])
+const expandedId = ref(null)
+const loadingIds = reactive(new Set())
+const errors = reactive(new Set())
+const loadFailed = ref(false)
 const levelsByMap = ref(new Map())
 const loading = ref(true)
 
@@ -138,10 +145,32 @@ function scrollToChapter() {
   document.getElementById('chapter-' + currentChapter.value.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
-function continueLearning() {
-  const level = levelsOf(currentChapter.value.id).find(item => item.id === currentChapter.value.currentLevelId && item.status !== 'LOCKED')
+async function continueLearning() {
+  const chapter = currentChapter.value
+  expandedId.value = chapter.id
+  await loadLevels(chapter.id)
+  const level = levelsOf(chapter.id).find(item => item.id === chapter.currentLevelId && item.status !== 'LOCKED')
   if (level) goLevel(level)
   else scrollToChapter()
+}
+
+async function toggleChapter(map) {
+  expandedId.value = expandedId.value === map.id ? null : map.id
+  if (expandedId.value) await loadLevels(map.id)
+}
+
+async function loadLevels(id) {
+  if (levelsByMap.value.has(id) || loadingIds.has(id)) return
+  loadingIds.add(id)
+  errors.delete(id)
+  try {
+    const response = await mapsApi.detail(id)
+    levelsByMap.value.set(id, response.data.data?.levels || [])
+  } catch {
+    errors.add(id)
+  } finally {
+    loadingIds.delete(id)
+  }
 }
 
 function goLevel(lv) {
@@ -152,7 +181,7 @@ function goLevel(lv) {
   router.push(`/level/${lv.id}?n=${lv.orderIndex}`)
 }
 
-async function submitForLevel(map, lv) {
+async function submitForLevel(lv) {
   try {
     const res = await mapsApi.levelDetail(lv.id)
     const tasks = (res.data.data?.tasks || []).filter(t => t.submissionStatus !== 'APPROVED')
@@ -178,31 +207,19 @@ function pickTask(t) {
   submitDialog.value?.open()
 }
 
-function onSubmitted() {
-  load()
+async function onSubmitted() {
+  const id = expandedId.value
+  if (id) levelsByMap.value.delete(id)
+  await Promise.all([store.refresh(), id ? loadLevels(id) : null])
 }
 
 async function load() {
   loading.value = true
-  try {
-    const res = await mapsApi.list()
-    maps.value = res.data.data || []
-    const byMap = new Map()
-    await Promise.all(maps.value.map(async m => {
-      try {
-        const d = await mapsApi.detail(m.id)
-        byMap.set(m.id, d.data?.data?.levels || [])
-      } catch (e) {
-        byMap.set(m.id, [])
-      }
-    }))
-    levelsByMap.value = byMap
-    store.refresh()
-  } catch (e) {
-    console.error(e)
-  } finally {
-    loading.value = false
-  }
+  const progress = await store.fetchProgress()
+  loadFailed.value = !progress
+  expandedId.value = currentChapter.value?.id ?? maps.value[0]?.id ?? null
+  if (expandedId.value) await loadLevels(expandedId.value)
+  loading.value = false
 }
 
 onMounted(load)
@@ -214,7 +231,7 @@ onMounted(load)
 
 .xp-chip {
   display: flex; align-items: center; gap: 10px;
-  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  background: linear-gradient(135deg, #faf0d7, #fde68a);
   border-radius: 12px; padding: 10px 18px;
 }
 .xp-icon { font-size: 22px; }
@@ -224,13 +241,13 @@ onMounted(load)
 .global-progress {
   padding: 16px 24px;
   margin-bottom: 32px;
-  background: linear-gradient(135deg, #eef2ff, #f5f3ff);
-  border: 1px solid #e0e7ff;
+  background: linear-gradient(135deg, #edf5ee, #f2f6ee);
+  border: 1px solid #dce7dc;
 }
 .gp-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
 .gp-label { font-size: 13px; font-weight: 600; color: var(--color-text); }
-.gp-value { font-size: 15px; font-weight: 700; color: #6366f1; margin-left: 10px; }
-.gp-current { font-size: 13px; color: #64748b; }
+.gp-value { font-size: 15px; font-weight: 700; color: #216354; margin-left: 10px; }
+.gp-current { font-size: 13px; color: #58685d; }
 .gp-go { margin-left: auto; }
 
 /* ===== 时间轴 ===== */
@@ -243,16 +260,16 @@ onMounted(load)
   position: absolute;
   left: 16px; top: 8px; bottom: 8px;
   width: 3px;
-  background: linear-gradient(180deg, #c7d2fe, #e2e8f0 30%, #e2e8f0 70%, #a7f3d0);
+  background: linear-gradient(180deg, #bed2bf, #dce2d7 30%, #dce2d7 70%, #a7f3d0);
   border-radius: 2px;
 }
 
-.tl-chapter { position: relative; margin-bottom: 30px; }
+.tl-chapter { position: relative; margin-bottom: 14px; }
 
 /* 章节节点（时间轴主圆点） */
 .tl-node {
   position: absolute;
-  left: -44px; top: 26px;
+  left: -44px; top: 20px;
   width: 34px; height: 34px;
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
@@ -262,9 +279,9 @@ onMounted(load)
   box-shadow: 0 2px 8px rgba(0, 0, 0, .15);
   z-index: 2;
 }
-.tl-node.in_progress { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
-.tl-node.completed { background: linear-gradient(135deg, #16a34a, #4ade80); }
-.tl-node.locked { background: #cbd5e1; color: #64748b; }
+.tl-node.in_progress { background: linear-gradient(135deg, #bc8b3b, #d9a753); }
+.tl-node.completed { background: linear-gradient(135deg, #30684b, #74a785); }
+.tl-node.locked { background: #bfcbbf; color: #58685d; }
 
 /* 章节卡片 */
 .tl-chapter-card {
@@ -279,49 +296,49 @@ onMounted(load)
 .tl-chapter-card::before {
   content: '';
   position: absolute; top: 0; left: 0; right: 0; height: 4px;
-  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  background: linear-gradient(90deg, #216354, #397c67);
 }
-.tl-chapter.completed .tl-chapter-card::before { background: linear-gradient(90deg, #22c55e, #4ade80); }
-.tl-chapter.locked .tl-chapter-card::before { background: #cbd5e1; }
+.tl-chapter.completed .tl-chapter-card::before { background: linear-gradient(90deg, #3b825f, #74a785); }
+.tl-chapter.locked .tl-chapter-card::before { background: #bfcbbf; }
 .tl-chapter.current .tl-chapter-card {
-  border-color: #fcd34d;
-  box-shadow: 0 8px 24px rgba(245, 158, 11, .18);
+  border-color: #a6bb9e;
+  box-shadow: 0 4px 14px rgba(49,68,39,.06);
 }
-.tl-chapter-card.locked { opacity: .6; }
+.tl-chapter-card.locked { background: #f5f5ee; }
 
 .tl-chapter-head { padding-bottom: 14px; }
 .tl-chapter-title-line { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 6px; }
 .tl-chapter-index {
   font-size: 12px; font-weight: 700; letter-spacing: 1px;
-  color: #6366f1; background: #eef2ff;
+  color: #216354; background: #edf5ee;
   padding: 3px 10px; border-radius: 20px;
 }
-.tl-chapter.completed .tl-chapter-index { color: #16a34a; background: #dcfce7; }
-.tl-chapter.locked .tl-chapter-index { color: #94a3b8; background: #f1f5f9; }
+.tl-chapter.completed .tl-chapter-index { color: #30684b; background: #e0efe6; }
+.tl-chapter.locked .tl-chapter-index { color: #667568; background: #edf0e9; }
 .tl-chapter-name { font-size: 17px; font-weight: 700; color: var(--color-text); }
 .tl-status { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
-.tl-status.in_progress { background: #fef3c7; color: #b45309; }
-.tl-status.completed { background: #dcfce7; color: #16a34a; }
-.tl-status.locked { background: #f1f5f9; color: #94a3b8; }
-.tl-count { font-size: 12px; color: #94a3b8; }
+.tl-status.in_progress { background: #faf0d7; color: #b45309; }
+.tl-status.completed { background: #e0efe6; color: #30684b; }
+.tl-status.locked { background: #edf0e9; color: #667568; }
+.tl-count { font-size: 12px; color: #667568; }
 
 .tl-chapter-desc { font-size: 13px; color: var(--color-text-secondary); margin-bottom: 10px; }
 
 .tl-story {
   font-size: 14px; line-height: 2;
-  color: #475569;
+  color: #3e5147;
   background: #fffbeb;
   border: 1px solid #fde68a;
-  border-left: 4px solid #f59e0b;
+  border-left: 4px solid #bc8b3b;
   border-radius: 0 12px 12px 12px;
   padding: 12px 16px;
 }
 .tl-story.locked {
-  background: #f8fafc;
-  border-color: #e2e8f0;
-  border-left-color: #cbd5e1;
-  color: #94a3b8;
-  font-style: italic;
+  background: #f5f6f0;
+  border-color: #dce2d7;
+  border-left-color: #bfcbbf;
+  color: #667568;
+
 }
 
 /* 关卡子项 */
@@ -333,8 +350,8 @@ onMounted(load)
   transition: background .15s;
   border: 1px dashed transparent;
 }
-.tl-level:hover { background: #f8fafc; border-color: #e2e8f0; }
-.tl-level.locked { opacity: .55; }
+.tl-level:hover { background: #f5f6f0; border-color: #dce2d7; }
+.tl-level.locked { color: var(--color-text-secondary); }
 .tl-level.current { background: #fffbeb; border-color: #fde68a; }
 
 .tl-level-dot {
@@ -342,23 +359,23 @@ onMounted(load)
   display: flex; align-items: center; justify-content: center;
   font-size: 13px; flex-shrink: 0;
 }
-.tl-level-dot.completed { background: #dcfce7; color: #16a34a; font-weight: 700; }
-.tl-level-dot.learning { background: #fef3c7; color: #b45309; }
-.tl-level-dot.locked { background: #f1f5f9; color: #94a3b8; }
+.tl-level-dot.completed { background: #e0efe6; color: #30684b; font-weight: 700; }
+.tl-level-dot.learning { background: #faf0d7; color: #b45309; }
+.tl-level-dot.locked { background: #edf0e9; color: #667568; }
 
 .tl-level-main { flex: 1; min-width: 0; }
 .tl-level-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .tl-level-name { font-size: 14px; font-weight: 600; color: var(--color-text); }
-.tl-level-xp { font-size: 11px; font-weight: 600; color: #d97706; background: #fef3c7; padding: 2px 8px; border-radius: 4px; }
+.tl-level-xp { font-size: 11px; font-weight: 600; color: #895b19; background: #faf0d7; padding: 2px 8px; border-radius: 4px; }
 .tl-level-now { font-size: 11px; font-weight: 700; color: #b45309; background: #fde68a; padding: 2px 8px; border-radius: 4px; }
 .tl-level-meta { display: flex; align-items: center; gap: 10px; margin-top: 3px; }
-.tl-level-status { font-size: 12px; color: #94a3b8; }
-.tl-level-status.completed { color: #16a34a; }
-.tl-level-status.learning { color: #d97706; }
-.tl-level-tasks { font-size: 12px; color: #94a3b8; }
+.tl-level-status { font-size: 12px; color: #667568; }
+.tl-level-status.completed { color: #30684b; }
+.tl-level-status.learning { color: #895b19; }
+.tl-level-tasks { font-size: 12px; color: #667568; }
 
 .tl-level-actions { display: flex; gap: 8px; flex-shrink: 0; }
-.tl-level-empty { padding: 14px; text-align: center; font-size: 13px; color: #94a3b8; }
+.tl-level-empty { padding: 14px; text-align: center; font-size: 13px; color: #667568; }
 
 /* 任务选择弹窗 */
 .task-picker-list { display: flex; flex-direction: column; gap: 10px; }
@@ -370,15 +387,28 @@ onMounted(load)
   cursor: pointer;
   transition: all .15s;
 }
-.task-picker-item:hover { border-color: #c7d2fe; background: #f5f3ff; transform: translateX(3px); }
+.task-picker-item:hover { border-color: #bed2bf; background: #f2f6ee; transform: translateX(3px); }
 .task-picker-title { flex: 1; font-size: 14px; font-weight: 500; color: var(--color-text); }
-.task-picker-xp { font-size: 12px; font-weight: 600; color: #d97706; }
-.task-picker-arrow { color: #94a3b8; font-size: 18px; }
+.task-picker-xp { font-size: 12px; font-weight: 600; color: #895b19; }
+.task-picker-arrow { color: #667568; font-size: 18px; }
 
 @media (max-width: 768px) {
   .story-timeline { padding-left: 36px; }
   .tl-node { left: -34px; width: 30px; height: 30px; font-size: 13px; }
   .tl-level { flex-wrap: wrap; }
   .tl-level-actions { width: 100%; justify-content: flex-end; }
+}
+
+.tl-chapter-title-line { width: 100%; text-align: left; font: inherit; border: 0; padding: 0; color: inherit; background: transparent; cursor: pointer; }
+.tl-chapter-head { padding-bottom: 0; }
+.chapter-chevron { margin-inline-start: auto; font-size: 20px; line-height: 1; color: #496a55; }
+.chapter-chevron.open { transform: rotate(180deg); }
+.task-picker-item { font: inherit; background: var(--color-surface); text-align: left; }
+.tl-levels { min-height: 42px; }
+@media(max-width: 600px) {
+  .story-timeline { padding-left: 0; }
+  .tl-node,.story-timeline::before { display: none; }
+  .tl-chapter-card { padding: 14px; }
+  .page-title-row { gap: 12px; align-items: center; }
 }
 </style>

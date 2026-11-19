@@ -1,52 +1,28 @@
 <template>
   <div class="page">
     <h1 class="page-title">排行榜</h1>
-    <p class="page-subtitle">看看谁是最强的技能掌握者</p>
+    <p class="page-subtitle">按累计经验排名 · {{ total }} 位成员</p>
 
-    <div class="section-card">
+    <div class="section-card" v-loading="loading">
       <div class="section-body" style="padding:0">
-        <!-- Top 3 podium (page 1 only) -->
-        <div class="podium" v-if="page === 1 && list.length >= 3">
-          <div class="podium-item second" v-if="list[1]">
-            <el-avatar :size="44" class="podium-avatar silver">{{ list[1].username?.charAt(0)?.toUpperCase() }}</el-avatar>
-            <div class="podium-name">{{ list[1].name || list[1].username }}</div>
-            <div class="podium-level">Lv.{{ list[1].level }} {{ levelShort(list[1].level) }}</div>
-            <div class="podium-xp">{{ list[1].totalXp }} XP</div>
-            <el-button v-if="canRequestMentor(list[1])" size="small" type="primary" round class="podium-btn" @click="openMentorDialog(list[1])">
-              🙋 拜师
-            </el-button>
-            <div class="podium-rank silver">2</div>
-          </div>
-          <div class="podium-item first" v-if="list[0]">
-            <div class="crown">👑</div>
-            <el-avatar :size="52" class="podium-avatar gold">{{ list[0].username?.charAt(0)?.toUpperCase() }}</el-avatar>
-            <div class="podium-name">{{ list[0].name || list[0].username }}</div>
-            <div class="podium-level">Lv.{{ list[0].level }} {{ levelShort(list[0].level) }}</div>
-            <div class="podium-xp">{{ list[0].totalXp }} XP</div>
-            <el-button v-if="canRequestMentor(list[0])" size="small" type="primary" round class="podium-btn" @click="openMentorDialog(list[0])">
-              🙋 拜师
-            </el-button>
-            <div class="podium-rank gold">1</div>
-          </div>
-          <div class="podium-item third" v-if="list[2]">
-            <el-avatar :size="40" class="podium-avatar bronze">{{ list[2].username?.charAt(0)?.toUpperCase() }}</el-avatar>
-            <div class="podium-name">{{ list[2].name || list[2].username }}</div>
-            <div class="podium-level">Lv.{{ list[2].level }} {{ levelShort(list[2].level) }}</div>
-            <div class="podium-xp">{{ list[2].totalXp }} XP</div>
-            <el-button v-if="canRequestMentor(list[2])" size="small" type="primary" round class="podium-btn" @click="openMentorDialog(list[2])">
-              🙋 拜师
-            </el-button>
-            <div class="podium-rank bronze">3</div>
-          </div>
+        <div class="podium" v-if="leaders.length">
+          <article v-for="(user, i) in leaders" :key="user.userId" class="podium-item" :class="{ winner: i === 0 }">
+            <span class="podium-place">第 {{ i + 1 }} 名</span>
+            <el-avatar :size="44" class="podium-avatar">{{ (user.name || user.username)?.charAt(0) }}</el-avatar>
+            <div class="podium-name">{{ user.name || user.username }}</div>
+            <span class="podium-level">Lv.{{ user.level }} · {{ levelShort(user.level) }}</span>
+            <strong class="podium-xp">{{ user.totalXp }} XP</strong>
+            <el-button v-if="canRequestMentor(user)" size="small" round class="podium-btn" @click="openMentorDialog(user)">申请拜师</el-button>
+          </article>
         </div>
 
-        <el-table :data="page === 1 ? list.slice(3) : list" stripe style="width:100%" empty-text="暂无排行数据">
+        <el-table v-if="rankRows.length || !leaders.length" :data="rankRows" stripe style="width:100%" empty-text="暂无排行数据">
           <el-table-column label="排名" width="80">
             <template #default="{ row }">
               <span class="rank-num">{{ row.rank }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="用户">
+          <el-table-column label="用户" min-width="116">
             <template #default="{ row }">
               {{ row.name || row.username }}
             </template>
@@ -57,12 +33,12 @@
               <span class="level-title">{{ levelShort(row.level) }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="经验值" sortable width="120">
+          <el-table-column label="经验值" width="120">
             <template #default="{ row }">
               <span class="xp-text">{{ row.totalXp }} XP</span>
             </template>
           </el-table-column>
-          <el-table-column label="进度" min-width="150">
+          <el-table-column label="本页经验对比" min-width="150">
             <template #default="{ row }">
               <div class="xp-bar-wrap">
                 <div class="xp-bar" :style="{ width: Math.min(row.totalXp / maxXp * 100, 100) + '%' }"></div>
@@ -87,7 +63,7 @@
     </div>
 
     <!-- 拜师对话框 -->
-    <el-dialog v-model="mentorDialogVisible" title="申请拜师" width="400px" :close-on-click-modal="false">
+    <el-dialog v-model="mentorDialogVisible" title="申请拜师" width="min(400px, calc(100% - 24px))" :close-on-click-modal="false">
       <div v-if="selectedUser" class="mentor-dialog-content">
         <div class="mentor-info-card">
           <el-avatar :size="60" class="mentor-avatar">{{ (selectedUser.name || selectedUser.username)?.charAt(0)?.toUpperCase() }}</el-avatar>
@@ -136,6 +112,8 @@ const mentorDialogVisible = ref(false)
 const selectedUser = ref(null)
 const requestLoading = ref(false)
 
+const leaders = computed(() => page.value === 1 ? list.value.slice(0, 3) : [])
+const rankRows = computed(() => list.value.slice(leaders.value.length))
 const maxXp = computed(() => Math.max(...list.value.map(l => l.totalXp), 1))
 
 function levelShort(lv) {
@@ -213,67 +191,52 @@ onMounted(() => {
 <style scoped>
 .page { max-width: 900px; }
 
-.podium {
-  display: flex; justify-content: center; align-items: flex-end;
-  gap: 16px; padding: 40px 24px 32px;
-  background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+.podium { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; padding: clamp(12px,3vw,24px); }
+.podium-item { position: relative; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; padding: clamp(13px,2vw,22px); border: 1px solid var(--color-border); border-radius: 14px; background: #f6f7ef; }
+.podium-item.winner { background: #234b3f; color: #fffaf0; border-color: #234b3f; }
+.podium-place { font-size: 12px; margin-bottom: 10px; font-weight: 700; }
+.podium-avatar { background: #dce7db; color: #315a44; font-weight: 700; }
+.winner .podium-avatar { background: #edce8c; color: #4e411f; }
+.podium-name { margin-top: 5px; word-break: break-word; font-size: 16px; font-weight: 650; }
+.podium-level { font-size: 12px; color: #5d6a5e; }
+.winner .podium-level { color: #c9dacd; }
+.podium-xp { font-size: 18px; color: #755118; }
+.winner .podium-xp { color: #f4d89e; }
+.podium-btn { margin-top: 5px; }
+@media(max-width: 600px) {
+  .podium { display: flex; flex-direction: column; gap: 6px; }
+  .podium-item { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; column-gap: 12px; }
+  .podium-place { grid-row: 1; grid-column: 1; margin: 0; }
+  .podium-avatar { display: none; }
+  .podium-name { grid-row: 1; grid-column: 2; margin: 0; }
+  .podium-level { grid-column: 2; }
+  .podium-xp { grid-row: 1; grid-column: 3; font-size: 14px; }
+  .podium-btn { grid-column: 3; grid-row: 2; margin: 0; }
 }
-.podium-item {
-  display: flex; flex-direction: column; align-items: center;
-  padding: 20px 28px; border-radius: 16px;
-  background: #fff;
-  box-shadow: var(--shadow-sm);
-  text-align: center;
-  transition: transform .2s;
-}
-.podium-item:hover { transform: translateY(-4px); }
-.podium-item.first { order: 1; padding: 28px 36px; box-shadow: var(--shadow-md); }
-.podium-item.second { order: 0; }
-.podium-item.third { order: 2; }
-
-.crown { font-size: 24px; margin-bottom: -8px; }
-.podium-avatar { font-weight: 700; }
-.podium-avatar.gold { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #fff; }
-.podium-avatar.silver { background: linear-gradient(135deg, #94a3b8, #64748b); color: #fff; }
-.podium-avatar.bronze { background: linear-gradient(135deg, #f97316, #ea580c); color: #fff; }
-
-.podium-name { font-size: 14px; font-weight: 600; margin-top: 8px; color: var(--color-text); }
-.podium-level { font-size: 12px; color: #6366f1; font-weight: 600; margin-top: 4px; }
-.podium-xp { font-size: 12px; color: #d97706; font-weight: 600; margin-top: 2px; }
-.podium-btn { margin-top: 8px; }
-.podium-rank {
-  width: 28px; height: 28px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 13px; font-weight: 700; color: #fff; margin-top: 8px;
-}
-.podium-rank.gold { background: #f59e0b; }
-.podium-rank.silver { background: #64748b; }
-.podium-rank.bronze { background: #ea580c; }
-
-.rank-num { font-weight: 600; color: #94a3b8; }
-.level-text { font-weight: 600; color: #6366f1; margin-right: 4px; }
-.level-title { font-size: 12px; color: #94a3b8; }
-.xp-text { font-weight: 600; color: #d97706; }
-.xp-bar-wrap { height: 6px; background: #f1f5f9; border-radius: 3px; overflow: hidden; }
-.xp-bar { height: 100%; background: linear-gradient(90deg, #6366f1, #8b5cf6); border-radius: 3px; transition: width .5s; }
+.rank-num { font-weight: 600; color: #667568; }
+.level-text { font-weight: 600; color: #216354; margin-right: 4px; }
+.level-title { font-size: 12px; color: #667568; }
+.xp-text { font-weight: 600; color: #895b19; }
+.xp-bar-wrap { height: 6px; background: #edf0e9; border-radius: 3px; overflow: hidden; }
+.xp-bar { height: 100%; background: linear-gradient(90deg, #216354, #397c67); border-radius: 3px; transition: width .5s; }
 
 /* 拜师对话框样式 */
 .mentor-dialog-content { display: flex; flex-direction: column; gap: 16px; }
 .mentor-info-card {
   display: flex; align-items: center; gap: 16px;
-  padding: 16px; background: #f8fafc; border-radius: 12px;
+  padding: 16px; background: #f5f6f0; border-radius: 12px;
 }
 .mentor-avatar {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  background: linear-gradient(135deg, #216354, #397c67);
   color: #fff; font-weight: 700; font-size: 20px;
 }
 .mentor-detail { flex: 1; }
 .mentor-name { font-size: 16px; font-weight: 600; color: var(--color-text); }
-.mentor-level { font-size: 14px; color: #6366f1; font-weight: 600; margin-top: 4px; }
-.mentor-xp { font-size: 13px; color: #d97706; margin-top: 2px; }
+.mentor-level { font-size: 14px; color: #216354; font-weight: 600; margin-top: 4px; }
+.mentor-xp { font-size: 13px; color: #895b19; margin-top: 2px; }
 .mentor-tip {
   display: flex; align-items: center; gap: 8px;
-  font-size: 13px; color: #94a3b8;
-  padding: 12px; background: #eef2ff; border-radius: 8px;
+  font-size: 13px; color: #667568;
+  padding: 12px; background: #edf5ee; border-radius: 8px;
 }
 </style>

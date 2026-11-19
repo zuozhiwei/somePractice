@@ -1,106 +1,71 @@
 <template>
   <div class="learn-page">
-    <!-- 视图切换器：同一份冒险，三种打开方式 -->
-    <div class="view-switcher">
-      <div class="vs-inner">
-        <button v-for="v in views" :key="v.key" class="vs-btn" :class="{ active: view === v.key }" @click="switchView(v.key)">
-          <span class="vs-icon">{{ v.icon }}</span>
-          <span class="vs-name">{{ v.name }}</span>
-        </button>
-      </div>
-      <span class="vs-hint">同一份冒险，三种打开方式 —— 想怎么学就怎么切</span>
-    </div>
-
-    <div class="view-body">
-      <component :is="viewComponent" :key="view" />
-    </div>
+    <nav class="view-switcher" aria-label="学习视图">
+      <RouterLink v-for="item in views" :key="item.key"
+                  :to="{ path: '/learn', query: { ...route.query, view: item.key } }"
+                  :aria-current-value="view === item.key ? 'page' : 'false'"
+                  :class="{ selected: view === item.key }">
+        {{ item.label }}
+      </RouterLink>
+    </nav>
+    <component :is="currentComponent" :key="view" />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, defineAsyncComponent } from 'vue'
+import { computed, defineAsyncComponent, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
-// 地图和技能树依赖不同的绘制资源，按需加载以减少首次进入的流量。
-const MapBoard = defineAsyncComponent(() => import('./MapBoard.vue'))
-const WorldMap = defineAsyncComponent(() => import('./WorldMap.vue'))
-const SkillTree = defineAsyncComponent(() => import('./SkillTree.vue'))
-
+const route = useRoute()
+const router = useRouter()
 const views = [
-  { key: 'story', icon: '📖', name: '剧情' },
-  { key: 'world', icon: '🗺️', name: '世界' },
-  { key: 'tree', icon: '🌳', name: '技能树' }
+  { key: 'world', label: '世界地图', component: defineAsyncComponent(() => import('./WorldMap.vue')) },
+  { key: 'story', label: '章节目录', component: defineAsyncComponent(() => import('./MapBoard.vue')) },
+  { key: 'tree', label: '技能树', component: defineAsyncComponent(() => import('./SkillTree.vue')) }
 ]
-
-// 记住用户上次选择的展示形式
-const savedView = localStorage.getItem('learn-view')
-const view = ref(views.some(item => item.key === savedView) ? savedView : 'world')
-
-const viewComponent = computed(() => ({ story: MapBoard, world: WorldMap, tree: SkillTree }[view.value]))
-
-function switchView(k) {
-  view.value = k
-  localStorage.setItem('learn-view', k)
+const valid = key => views.some(item => item.key === key)
+function lastView() {
+  try { return localStorage.getItem('learn-view') } catch { return null }
 }
+const view = computed(() => {
+  if (valid(route.query.view)) return route.query.view
+  const saved = lastView()
+  return valid(saved) ? saved : 'world'
+})
+const currentComponent = computed(() => views.find(item => item.key === view.value).component)
+
+watch(() => route.query.view, key => {
+  if (route.path !== '/learn') return
+  if (!valid(key)) {
+    router.replace({ path: route.path, query: { ...route.query, view: view.value }, hash: route.hash })
+    return
+  }
+  try { localStorage.setItem('learn-view', key) } catch { /* The URL still preserves the view. */ }
+}, { immediate: true })
 </script>
 
 <style scoped>
-.learn-page {
-  display: flex;
-  flex-direction: column;
-  height: calc(100vh - 64px);
-}
-
-/* ===== 视图切换器 ===== */
+.learn-page { min-width: 0; }
 .view-switcher {
-  flex-shrink: 0;
   display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 16px;
+  align-items: stretch;
+  gap: clamp(18px, 3vw, 34px);
+  margin-bottom: clamp(16px, 2vw, 26px);
+  border-bottom: 1px solid var(--color-border, #d4dacf);
 }
-.vs-inner {
-  display: flex;
-  gap: 6px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
-  padding: 5px;
-  box-shadow: var(--shadow-sm);
-}
-.vs-btn {
-  display: flex;
+.view-switcher a {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  border: none;
-  background: none;
-  padding: 9px 20px;
-  border-radius: 10px;
-  cursor: pointer;
+  min-height: 44px;
+  padding: 0 2px;
+  border-bottom: 3px solid transparent;
+  color: var(--color-text-secondary, #55685e);
   font-size: 14px;
   font-weight: 600;
-  color: #64748b;
-  transition: all .2s;
+  text-decoration: none;
 }
-.vs-btn:hover { color: #1e293b; background: #f1f5f9; }
-.vs-btn.active {
-  color: #fff;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  box-shadow: 0 3px 10px rgba(99, 102, 241, .3);
-}
-.vs-icon { font-size: 16px; }
-.vs-hint { font-size: 12px; color: #94a3b8; }
-
-/* ===== 视图区 ===== */
-.view-body {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-}
-
-@media (max-width: 768px) {
-  .learn-page { height: calc(100vh - 40px); }
-  .view-switcher { flex-wrap: wrap; gap: 10px; }
-  .vs-btn { padding: 8px 14px; font-size: 13px; }
-  .vs-hint { display: none; }
-}
+.view-switcher a:hover,
+.view-switcher a.selected { color: var(--color-primary, #196450); }
+.view-switcher a.selected { border-bottom-color: currentColor; }
+.view-switcher a:focus-visible { outline: 2px solid var(--color-primary, #196450); outline-offset: 2px; }
 </style>

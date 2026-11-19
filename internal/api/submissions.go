@@ -129,8 +129,8 @@ func (a *App) mySubmissions(w http.ResponseWriter, r *http.Request, user int64) 
 		bad(w, "页码无效")
 		return
 	}
-	var total int
-	if err = a.DB.QueryRowContext(r.Context(), `SELECT count(*) FROM user_task_submissions WHERE user_id=?`, user).Scan(&total); err != nil {
+	var total, approvedTasks int
+	if err = a.DB.QueryRowContext(r.Context(), `SELECT count(*), count(DISTINCT CASE WHEN status='APPROVED' THEN task_id END) FROM user_task_submissions WHERE user_id=?`, user).Scan(&total, &approvedTasks); err != nil {
 		fail(w)
 		return
 	}
@@ -155,7 +155,7 @@ func (a *App) mySubmissions(w http.ResponseWriter, r *http.Request, user int64) 
 		fail(w)
 		return
 	}
-	ok(w, map[string]any{"content": out, "total": total})
+	ok(w, map[string]any{"content": out, "total": total, "approvedTasks": approvedTasks})
 }
 func (a *App) submissions(w http.ResponseWriter, r *http.Request, user int64) {
 	id, err := idParam(r)
