@@ -45,7 +45,7 @@ func (a *App) snapshot(r *http.Request, user int64) (snapshot, error) {
 	if err := a.DB.QueryRowContext(r.Context(), `SELECT COALESCE(role,'') FROM users WHERE id=?`, user).Scan(&role); err != nil {
 		return s, err
 	}
-	s.teacher = role == "TEACHER"
+	s.teacher = role == "TEACHER" || role == "SUPERADMIN"
 	rows, err := a.DB.QueryContext(r.Context(), `SELECT id,map_id,name,description,category,tier,order_index,xp_reward,prerequisite_level_ids FROM levels ORDER BY order_index,id`)
 	if err != nil {
 		return s, err

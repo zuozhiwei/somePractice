@@ -102,33 +102,35 @@ func (a *App) Register(m *http.ServeMux) {
 		r.Header.Set("Authorization", "Bearer "+r.URL.Query().Get("token"))
 		a.auth(a.chatWS)(w, r)
 	})
-	m.HandleFunc("GET /api/admin/levels", a.auth(a.teacher(a.adminLevels)))
-	m.HandleFunc("GET /api/admin/levels/{id}", a.auth(a.teacher(a.adminLevels)))
-	m.HandleFunc("POST /api/admin/levels", a.auth(a.teacher(a.adminSaveLevel)))
-	m.HandleFunc("PUT /api/admin/levels/{id}", a.auth(a.teacher(a.adminSaveLevel)))
-	m.HandleFunc("DELETE /api/admin/levels/{id}", a.auth(a.teacher(a.adminDeleteContent)))
-	m.HandleFunc("POST /api/admin/tasks", a.auth(a.teacher(a.adminSaveTask)))
-	m.HandleFunc("PUT /api/admin/tasks/{id}", a.auth(a.teacher(a.adminSaveTask)))
-	m.HandleFunc("DELETE /api/admin/tasks/{id}", a.auth(a.teacher(a.adminDeleteContent)))
-	m.HandleFunc("PUT /api/admin/tasks/{id}/move", a.auth(a.teacher(a.adminMoveTask)))
+	m.HandleFunc("GET /api/admin/levels", a.auth(a.staff(true, a.adminLevels)))
+	m.HandleFunc("GET /api/admin/levels/{id}", a.auth(a.staff(true, a.adminLevels)))
+	m.HandleFunc("POST /api/admin/levels", a.auth(a.staff(true, a.adminSaveLevel)))
+	m.HandleFunc("PUT /api/admin/levels/{id}", a.auth(a.staff(true, a.adminSaveLevel)))
+	m.HandleFunc("DELETE /api/admin/levels/{id}", a.auth(a.staff(true, a.adminDeleteContent)))
+	m.HandleFunc("POST /api/admin/tasks", a.auth(a.staff(true, a.adminSaveTask)))
+	m.HandleFunc("PUT /api/admin/tasks/{id}", a.auth(a.staff(true, a.adminSaveTask)))
+	m.HandleFunc("DELETE /api/admin/tasks/{id}", a.auth(a.staff(true, a.adminDeleteContent)))
+	m.HandleFunc("PUT /api/admin/tasks/{id}/move", a.auth(a.staff(true, a.adminMoveTask)))
 	m.HandleFunc("GET /api/tutorials", a.auth(a.tutorials))
-	m.HandleFunc("POST /api/tutorials", a.auth(a.teacher(a.saveTutorial)))
-	m.HandleFunc("PUT /api/tutorials/{id}", a.auth(a.teacher(a.saveTutorial)))
-	m.HandleFunc("DELETE /api/tutorials/{id}", a.auth(a.teacher(a.adminDeleteContent)))
-	m.HandleFunc("GET /api/admin/users", a.auth(a.teacher(a.adminUsers)))
-	m.HandleFunc("DELETE /api/admin/users/{id}", a.auth(a.teacher(a.adminDeleteUser)))
-	m.HandleFunc("PUT /api/admin/users/{id}/role", a.auth(a.teacher(a.adminUserUpdate)))
-	m.HandleFunc("PUT /api/admin/users/{id}/level", a.auth(a.teacher(a.adminUserUpdate)))
-	m.HandleFunc("PUT /api/admin/users/{id}/team", a.auth(a.teacher(a.adminAssignTeam)))
-	m.HandleFunc("GET /api/admin/teams", a.auth(a.teacher(a.adminTeams)))
-	m.HandleFunc("POST /api/admin/teams", a.auth(a.teacher(a.adminTeams)))
-	m.HandleFunc("PUT /api/admin/teams/{id}", a.auth(a.teacher(a.adminTeams)))
-	m.HandleFunc("DELETE /api/admin/teams/{id}", a.auth(a.teacher(a.adminTeams)))
-	m.HandleFunc("GET /api/admin/invite-codes", a.auth(a.teacher(a.adminInvites)))
-	m.HandleFunc("POST /api/admin/invite-codes", a.auth(a.teacher(a.adminInvites)))
-	m.HandleFunc("DELETE /api/admin/invite-codes/{id}", a.auth(a.teacher(a.adminInvites)))
-	m.HandleFunc("GET /api/admin/submissions", a.auth(a.teacher(a.adminSubmissions)))
-	m.HandleFunc("GET /api/admin/mentorship-graph", a.auth(a.teacher(a.adminGraph)))
+	m.HandleFunc("POST /api/tutorials", a.auth(a.staff(true, a.saveTutorial)))
+	m.HandleFunc("PUT /api/tutorials/{id}", a.auth(a.staff(true, a.saveTutorial)))
+	m.HandleFunc("DELETE /api/tutorials/{id}", a.auth(a.staff(true, a.adminDeleteContent)))
+	m.HandleFunc("GET /api/admin/users", a.auth(a.staff(true, a.adminUsers)))
+	m.HandleFunc("PUT /api/admin/users/{id}", a.auth(a.staff(true, a.adminUserProfile)))
+	m.HandleFunc("POST /api/admin/users/{id}/password-reset", a.auth(a.staff(true, a.adminPasswordReset)))
+	m.HandleFunc("DELETE /api/admin/users/{id}", a.auth(a.staff(true, a.adminDeleteUser)))
+	m.HandleFunc("PUT /api/admin/users/{id}/role", a.auth(a.staff(true, a.adminUserUpdate)))
+	m.HandleFunc("PUT /api/admin/users/{id}/level", a.auth(a.staff(true, a.adminUserUpdate)))
+	m.HandleFunc("PUT /api/admin/users/{id}/team", a.auth(a.staff(true, a.adminAssignTeam)))
+	m.HandleFunc("GET /api/admin/teams", a.auth(a.staff(true, a.adminTeams)))
+	m.HandleFunc("POST /api/admin/teams", a.auth(a.staff(true, a.adminTeams)))
+	m.HandleFunc("PUT /api/admin/teams/{id}", a.auth(a.staff(true, a.adminTeams)))
+	m.HandleFunc("DELETE /api/admin/teams/{id}", a.auth(a.staff(true, a.adminTeams)))
+	m.HandleFunc("GET /api/admin/invite-codes", a.auth(a.staff(true, a.adminInvites)))
+	m.HandleFunc("POST /api/admin/invite-codes", a.auth(a.staff(true, a.adminInvites)))
+	m.HandleFunc("DELETE /api/admin/invite-codes/{id}", a.auth(a.staff(true, a.adminInvites)))
+	m.HandleFunc("GET /api/admin/submissions", a.auth(a.staff(false, a.adminSubmissions)))
+	m.HandleFunc("GET /api/admin/mentorship-graph", a.auth(a.staff(true, a.adminGraph)))
 }
 func reply(w http.ResponseWriter, status int, data any, msg string) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -164,9 +166,13 @@ func (a *App) auth(fn func(http.ResponseWriter, *http.Request, int64)) http.Hand
 			reply(w, 401, nil, "登录已过期")
 			return
 		}
-		var found int
-		if err = a.DB.QueryRowContext(r.Context(), `SELECT 1 FROM users WHERE id=? AND username=?`, c.UserID, c.Subject).Scan(&found); err != nil {
+		var role string
+		if err = a.DB.QueryRowContext(r.Context(), `SELECT COALESCE(role,'') FROM users WHERE id=? AND username=?`, c.UserID, c.Subject).Scan(&role); err != nil {
 			reply(w, 401, nil, "用户不存在")
+			return
+		}
+		if role == "SUPERADMIN" && c.Role != role {
+			reply(w, 401, nil, "权限已更新，请重新登录")
 			return
 		}
 		fn(w, r, c.UserID)

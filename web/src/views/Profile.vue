@@ -123,7 +123,7 @@ const editingProfile = ref(false)
 const saving = ref(false)
 const editForm = reactive({ name: '', email: '' })
 
-function roleText(r) { return { TEACHER:'教师',INTERNAL:'内部成员',EXTERNAL:'游客' }[r]||r }
+function roleText(r) { return { SUPERADMIN: '超级管理员', TEACHER:'教师',INTERNAL:'内部成员',EXTERNAL:'游客' }[r]||r }
 
 function levelTitle(lv) {
   if (lv >= 70) return '👑 王者'

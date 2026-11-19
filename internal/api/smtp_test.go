@@ -129,7 +129,7 @@ func TestPasswordReset(t *testing.T) {
 	}
 	// Exercise reset code expiration, validation, and one-time use without sending a real email.
 	app := New(db)
-	app.resets["student@example.test"] = resetEntry{code: "123456", expires: time.Now().Add(time.Minute)}
+	app.resets["student@example.test"] = resetEntry{userID: 1, code: "123456", expires: time.Now().Add(time.Minute)}
 	mux := http.NewServeMux()
 	app.Register(mux)
 	w := call(mux, "POST", "/api/auth/reset-password", `{"email":"student@example.test","code":"123456","newPassword":"new-password"}`, "")
@@ -143,5 +143,25 @@ func TestPasswordReset(t *testing.T) {
 	w = call(mux, "POST", "/api/auth/reset-password", `{"email":"student@example.test","code":"123456","newPassword":"other-password"}`, "")
 	if w.Code != 400 {
 		t.Fatalf("reset code reused %d", w.Code)
+	}
+}
+
+func TestResetCodeCannotFollowReassignedEmail(t *testing.T) {
+	db, _ := testApp(t)
+	if _, err := db.Exec(`INSERT INTO users(id,username,password,email,role,total_xp,level)
+		SELECT 2,'new-owner',password,'reassigned@example.test','EXTERNAL',0,0 FROM users WHERE id=1`); err != nil {
+		t.Fatal(err)
+	}
+	app := New(db)
+	app.resets["reassigned@example.test"] = resetEntry{userID: 1, code: "123456", expires: time.Now().Add(time.Minute)}
+	mux := http.NewServeMux()
+	app.Register(mux)
+	w := call(mux, "POST", "/api/auth/reset-password", `{"email":"reassigned@example.test","code":"123456","newPassword":"new-password"}`, "")
+	if w.Code != 400 {
+		t.Fatalf("old code accepted for new owner: %d", w.Code)
+	}
+	w = call(mux, "POST", "/api/auth/login", `{"username":"new-owner","password":"correct-password"}`, "")
+	if w.Code != 200 {
+		t.Fatalf("new owner's password was changed: %d", w.Code)
 	}
 }

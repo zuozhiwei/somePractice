@@ -13,7 +13,9 @@ export const adminApi = {
   deleteTask: id => request.delete(`/admin/tasks/${id}`),
   moveTask: (id, direction) => request.put(`/admin/tasks/${id}/move`, null, { params: { direction } }),
   // Users
-  listUsers: (page, size) => request.get('/admin/users', { params: { page, size } }),
+  listUsers: (page, size, q) => request.get('/admin/users', { params: { page, size, q } }),
+  updateUser: (id, data) => request.put(`/admin/users/${id}`, data),
+  sendPasswordReset: id => request.post(`/admin/users/${id}/password-reset`, null, { timeout: 30000 }),
   updateRole: (id, role) => request.put(`/admin/users/${id}/role`, null, { params: { role } }),
   setLevel: (id, level) => request.put(`/admin/users/${id}/level`, null, { params: { level } }),
   deleteUser: id => request.delete(`/admin/users/${id}`),

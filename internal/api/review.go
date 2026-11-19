@@ -49,12 +49,17 @@ func (a *App) review(w http.ResponseWriter, r *http.Request, reviewer int64) {
 		fail(w)
 		return
 	}
-	if err = tx.QueryRowContext(r.Context(), `SELECT count(*) FROM mentorships WHERE mentor_id=? AND apprentice_id=? AND status='ACTIVE'`, reviewer, user).Scan(&count); err != nil {
+	if user == reviewer {
+		reply(w, 403, nil, "不能审核自己的提交")
+		return
+	}
+	if err = tx.QueryRowContext(r.Context(), `SELECT EXISTS(SELECT 1 FROM users WHERE id=? AND role='SUPERADMIN')
+		OR EXISTS(SELECT 1 FROM mentorships WHERE mentor_id=? AND apprentice_id=? AND status='ACTIVE')`, reviewer, reviewer, user).Scan(&count); err != nil {
 		fail(w)
 		return
 	}
 	if count == 0 {
-		if err = tx.QueryRowContext(r.Context(), `SELECT count(*) FROM users reviewer JOIN users student ON student.id=? WHERE reviewer.id=? AND student.role='EXTERNAL' AND reviewer.role IN ('INTERNAL','TEACHER') AND COALESCE(reviewer.level,0)>COALESCE(student.level,0)`, user, reviewer).Scan(&count); err != nil {
+		if err = tx.QueryRowContext(r.Context(), `SELECT count(*) FROM users reviewer JOIN users student ON student.id=? WHERE reviewer.id=? AND student.role='EXTERNAL' AND reviewer.role IN ('INTERNAL','TEACHER','SUPERADMIN') AND COALESCE(reviewer.level,0)>COALESCE(student.level,0)`, user, reviewer).Scan(&count); err != nil {
 			fail(w)
 			return
 		}

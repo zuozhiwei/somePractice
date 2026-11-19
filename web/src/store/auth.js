@@ -7,6 +7,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isLoggedIn = computed(() => !!token.value)
   const isTeacher = computed(() => user.value?.role === 'TEACHER')
+  const isSuperAdmin = computed(() => user.value?.role === 'SUPERADMIN')
 
   function setAuth(t, u) {
     token.value = t
@@ -22,5 +23,5 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('user')
   }
 
-  return { token, user, isLoggedIn, isTeacher, setAuth, logout }
+  return { token, user, isLoggedIn, isTeacher, isSuperAdmin, setAuth, logout }
 })

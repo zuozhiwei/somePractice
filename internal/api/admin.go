@@ -4,20 +4,21 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"net/mail"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 )
 
-func (a *App) teacher(fn func(http.ResponseWriter, *http.Request, int64)) func(http.ResponseWriter, *http.Request, int64) {
+func (a *App) staff(superadminOnly bool, fn func(http.ResponseWriter, *http.Request, int64)) func(http.ResponseWriter, *http.Request, int64) {
 	return func(w http.ResponseWriter, r *http.Request, user int64) {
 		var role string
 		if a.DB.QueryRowContext(r.Context(), `SELECT COALESCE(role,'') FROM users WHERE id=?`, user).Scan(&role) != nil {
 			fail(w)
 			return
 		}
-		if role != "TEACHER" {
+		if role != "SUPERADMIN" && (superadminOnly || role != "TEACHER") {
 			reply(w, 403, nil, "权限不足")
 			return
 		}
@@ -185,13 +186,21 @@ func (a *App) adminDeleteContent(w http.ResponseWriter, r *http.Request, user in
 		bad(w, "类型无效")
 		return
 	}
-	res, err := a.DB.ExecContext(r.Context(), `DELETE FROM `+table+` WHERE id=? AND is_builtin=0`, id)
+	query := `DELETE FROM ` + table + ` WHERE id=?`
+	if table != "tutorials" {
+		query += ` AND is_builtin=0`
+	}
+	res, err := a.DB.ExecContext(r.Context(), query, id)
 	if err != nil {
 		bad(w, "无法删除：该内容仍有关联数据")
 		return
 	}
 	n, _ := res.RowsAffected()
 	if n == 0 {
+		if table == "tutorials" {
+			reply(w, 404, nil, "教程不存在")
+			return
+		}
 		bad(w, "内置内容不可删除或内容不存在")
 		return
 	}
@@ -286,8 +295,16 @@ func (a *App) saveTutorial(w http.ResponseWriter, r *http.Request, user int64) {
 		Order          int    `json:"sortOrder"`
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, 2<<20)
-	if json.NewDecoder(r.Body).Decode(&v) != nil || strings.TrimSpace(v.Title) == "" {
+	if json.NewDecoder(r.Body).Decode(&v) != nil || strings.TrimSpace(v.Title) == "" || v.LevelID == nil || *v.LevelID <= 0 || v.Order < 0 {
 		bad(w, "教程无效")
+		return
+	}
+	var found int
+	if err := a.DB.QueryRowContext(r.Context(), `SELECT 1 FROM levels WHERE id=?`, *v.LevelID).Scan(&found); err == sql.ErrNoRows {
+		bad(w, "关卡不存在")
+		return
+	} else if err != nil {
+		fail(w)
 		return
 	}
 	now := time.Now().In(a.zone).Format("2006-01-02 15:04:05.999999999")
@@ -301,8 +318,17 @@ func (a *App) saveTutorial(w http.ResponseWriter, r *http.Request, user int64) {
 		}
 	} else {
 		id, err = idParam(r)
+		if err != nil {
+			bad(w, "教程编号无效")
+			return
+		}
+		var result sql.Result
+		result, err = a.DB.ExecContext(r.Context(), `UPDATE tutorials SET title=?,content=?,level_id=?,sort_order=?,updated_at=? WHERE id=?`, v.Title, v.Content, v.LevelID, v.Order, now, id)
 		if err == nil {
-			_, err = a.DB.ExecContext(r.Context(), `UPDATE tutorials SET title=?,content=?,level_id=?,sort_order=?,updated_at=? WHERE id=?`, v.Title, v.Content, v.LevelID, v.Order, now, id)
+			if n, _ := result.RowsAffected(); n == 0 {
+				reply(w, 404, nil, "教程不存在")
+				return
+			}
 		}
 	}
 	if err != nil {
@@ -318,11 +344,17 @@ func (a *App) adminUsers(w http.ResponseWriter, r *http.Request, user int64) {
 		return
 	}
 	var total int
-	if a.DB.QueryRowContext(r.Context(), `SELECT count(*) FROM users`).Scan(&total) != nil {
+	search := strings.TrimSpace(r.URL.Query().Get("q"))
+	if len(search) > 254 {
+		bad(w, "搜索词过长")
+		return
+	}
+	const filter = ` WHERE instr(lower(username),lower(?))>0 OR instr(lower(COALESCE(name,'')),lower(?))>0 OR instr(lower(COALESCE(email,'')),lower(?))>0`
+	if a.DB.QueryRowContext(r.Context(), `SELECT count(*) FROM users`+filter, search, search, search).Scan(&total) != nil {
 		fail(w)
 		return
 	}
-	rows, err := a.DB.QueryContext(r.Context(), `SELECT id FROM users ORDER BY id LIMIT ? OFFSET ?`, size, page*size)
+	rows, err := a.DB.QueryContext(r.Context(), `SELECT id FROM users`+filter+` ORDER BY id LIMIT ? OFFSET ?`, search, search, search, size, page*size)
 	if err != nil {
 		fail(w)
 		return
@@ -360,29 +392,84 @@ func (a *App) adminUserUpdate(w http.ResponseWriter, r *http.Request, user int64
 		bad(w, "用户无效")
 		return
 	}
+	var result sql.Result
 	if strings.HasSuffix(r.URL.Path, "/role") {
 		role := r.URL.Query().Get("role")
 		if role != "TEACHER" && role != "INTERNAL" && role != "EXTERNAL" {
 			bad(w, "身份无效")
 			return
 		}
-		_, err = a.DB.ExecContext(r.Context(), `UPDATE users SET role=? WHERE id=?`, role, id)
+		result, err = a.DB.ExecContext(r.Context(), `UPDATE users SET role=? WHERE id=? AND COALESCE(role,'')<>'SUPERADMIN'`, role, id)
 	} else {
 		level, e := strconv.Atoi(r.URL.Query().Get("level"))
 		if e != nil || level < 0 {
 			bad(w, "级别无效")
 			return
 		}
-		_, err = a.DB.ExecContext(r.Context(), `UPDATE users SET level=? WHERE id=?`, level, id)
+		result, err = a.DB.ExecContext(r.Context(), `UPDATE users SET level=? WHERE id=? AND COALESCE(role,'')<>'SUPERADMIN'`, level, id)
 	}
 	if err != nil {
 		fail(w)
 		return
 	}
+	if n, _ := result.RowsAffected(); n == 0 {
+		reply(w, 404, nil, "用户不存在或是受保护的超级管理员")
+		return
+	}
 	ok(w, nil)
 }
+
+func (a *App) adminUserProfile(w http.ResponseWriter, r *http.Request, actor int64) {
+	id, err := idParam(r)
+	if err != nil {
+		bad(w, "用户无效")
+		return
+	}
+	var body struct {
+		Username string `json:"username"`
+		Name     string `json:"name"`
+		Email    string `json:"email"`
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 4096)
+	if json.NewDecoder(r.Body).Decode(&body) != nil {
+		bad(w, "资料无效")
+		return
+	}
+	body.Username = strings.TrimSpace(body.Username)
+	body.Name = strings.TrimSpace(body.Name)
+	body.Email = strings.TrimSpace(body.Email)
+	if body.Username == "" || len(body.Username) > 80 || len(body.Name) > 100 || len(body.Email) > 254 {
+		bad(w, "资料无效")
+		return
+	}
+	if body.Email != "" {
+		if address, err := mail.ParseAddress(body.Email); err != nil || address.Address != body.Email {
+			bad(w, "邮箱无效")
+			return
+		}
+	}
+	result, err := a.DB.ExecContext(r.Context(), `UPDATE users SET username=?,name=NULLIF(?,''),email=NULLIF(?,'') WHERE id=? AND COALESCE(role,'')<>'SUPERADMIN'`,
+		body.Username, body.Name, body.Email, id)
+	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			reply(w, 409, nil, "用户名或邮箱已被占用")
+		} else {
+			fail(w)
+		}
+		return
+	}
+	if n, _ := result.RowsAffected(); n == 0 {
+		reply(w, 404, nil, "用户不存在或是受保护的超级管理员")
+		return
+	}
+	a.profile(w, r, id)
+}
 func (a *App) adminSubmissions(w http.ResponseWriter, r *http.Request, user int64) {
-	rows, err := a.DB.QueryContext(r.Context(), submissionSelect+`ORDER BY s.submitted_at DESC,s.id DESC LIMIT 5000`)
+	rows, err := a.DB.QueryContext(r.Context(), submissionSelect+` WHERE EXISTS(SELECT 1 FROM users reviewer WHERE reviewer.id=? AND reviewer.role='SUPERADMIN')
+		OR s.reviewer_id=?
+		OR EXISTS(SELECT 1 FROM mentorships m WHERE m.mentor_id=? AND m.apprentice_id=s.user_id AND m.status='ACTIVE')
+		OR EXISTS(SELECT 1 FROM users reviewer WHERE reviewer.id=? AND u.role='EXTERNAL' AND COALESCE(reviewer.level,0)>COALESCE(u.level,0))
+		ORDER BY s.submitted_at DESC,s.id DESC LIMIT 5000`, user, user, user, user)
 	if err != nil {
 		fail(w)
 		return
@@ -514,6 +601,18 @@ func (a *App) adminDeleteUser(w http.ResponseWriter, r *http.Request, actor int6
 		return
 	}
 	defer tx.Rollback()
+	var role string
+	if err := tx.QueryRowContext(r.Context(), `SELECT COALESCE(role,'') FROM users WHERE id=?`, id).Scan(&role); err == sql.ErrNoRows {
+		reply(w, 404, nil, "用户不存在")
+		return
+	} else if err != nil {
+		fail(w)
+		return
+	}
+	if role == "SUPERADMIN" {
+		reply(w, 403, nil, "不能删除超级管理员")
+		return
+	}
 	queries := []string{
 		`DELETE FROM chat_messages WHERE conversation_id IN (SELECT id FROM conversations WHERE owner_id=?)`,
 		`DELETE FROM conversation_members WHERE conversation_id IN (SELECT id FROM conversations WHERE owner_id=?)`,
@@ -564,6 +663,14 @@ func (a *App) adminAssignTeam(w http.ResponseWriter, r *http.Request, actor int6
 	}
 	defer tx.Rollback()
 	var count int
+	if err := tx.QueryRowContext(r.Context(), `SELECT count(*) FROM users WHERE id=? AND COALESCE(role,'')<>'SUPERADMIN'`, id).Scan(&count); err != nil {
+		fail(w)
+		return
+	}
+	if count == 0 {
+		reply(w, 404, nil, "用户不存在或是受保护的超级管理员")
+		return
+	}
 	if tx.QueryRow(`SELECT count(*) FROM teams WHERE id=?`, team).Scan(&count) != nil || count == 0 {
 		bad(w, "团队不存在")
 		return

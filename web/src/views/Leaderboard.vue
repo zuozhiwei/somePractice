@@ -176,7 +176,7 @@ function canRequestMentor(user) {
   const me = authStore.user
   if (!me) return false
   if (me.role === 'EXTERNAL') return false
-  if (me.role !== 'INTERNAL' && me.role !== 'TEACHER') return false
+  if (me.role !== 'INTERNAL' && me.role !== 'TEACHER' && me.role !== 'SUPERADMIN') return false
   const uid = user.userId ?? user.id
   if (uid === me.id) return false
   if (myApprenticeIds.value.includes(uid)) return false

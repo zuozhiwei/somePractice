@@ -22,6 +22,7 @@ import (
 )
 
 type resetEntry struct {
+	userID   int64
 	code     string
 	expires  time.Time
 	attempts int
@@ -123,7 +124,7 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if mentor != nil {
-		if err = tx.QueryRow(`SELECT count(*) FROM users WHERE id=? AND role IN ('INTERNAL','TEACHER')`, *mentor).Scan(&count); err != nil || count == 0 {
+		if err = tx.QueryRow(`SELECT count(*) FROM users WHERE id=? AND role IN ('INTERNAL','TEACHER','SUPERADMIN')`, *mentor).Scan(&count); err != nil || count == 0 {
 			bad(w, "邀请的师父不存在")
 			return
 		}
@@ -212,23 +213,61 @@ func (a *App) forgotPassword(w http.ResponseWriter, r *http.Request) {
 		bad(w, "邮箱无效")
 		return
 	}
+	var id int64
+	err = a.DB.QueryRowContext(r.Context(), `SELECT id FROM users WHERE email=?`, x.Email).Scan(&id)
+	if err == sql.ErrNoRows {
+		ok(w, nil)
+		return
+	}
+	if err != nil {
+		fail(w)
+		return
+	}
+	a.sendPasswordReset(w, id, x.Email)
+}
+
+func (a *App) adminPasswordReset(w http.ResponseWriter, r *http.Request, actor int64) {
+	if !a.allowAttempt("admin-reset:"+strconv.FormatInt(actor, 10), 30) {
+		reply(w, 429, nil, "请求过于频繁，请稍后再试")
+		return
+	}
+	id, err := idParam(r)
+	if err != nil {
+		bad(w, "用户无效")
+		return
+	}
+	var role string
+	var email sql.NullString
+	err = a.DB.QueryRowContext(r.Context(), `SELECT COALESCE(role,''),email FROM users WHERE id=?`, id).Scan(&role, &email)
+	if err == sql.ErrNoRows {
+		reply(w, 404, nil, "用户不存在")
+		return
+	}
+	if err != nil {
+		fail(w)
+		return
+	}
+	if role == "SUPERADMIN" {
+		reply(w, 403, nil, "超级管理员请使用忘记密码流程")
+		return
+	}
+	address, err := mail.ParseAddress(email.String)
+	if err != nil || address.Address != email.String {
+		bad(w, "用户尚未绑定有效的邮箱")
+		return
+	}
+	a.sendPasswordReset(w, id, email.String)
+}
+
+func (a *App) sendPasswordReset(w http.ResponseWriter, id int64, email string) {
 	host, user, pass := os.Getenv("SMTP_HOST"), os.Getenv("SMTP_USERNAME"), os.Getenv("SMTP_PASSWORD")
 	if host == "" || user == "" || pass == "" {
 		reply(w, 503, nil, "邮件服务未配置")
 		return
 	}
-	var n int
-	if err := a.DB.QueryRowContext(r.Context(), `SELECT count(*) FROM users WHERE email=?`, x.Email).Scan(&n); err != nil {
-		fail(w)
-		return
-	}
-	if n == 0 {
-		ok(w, nil)
-		return
-	}
 	a.resetMu.Lock()
-	prev, exists := a.resets[x.Email]
-	if exists && time.Until(prev.expires) > 4*time.Minute {
+	prev, exists := a.resets[email]
+	if exists && prev.userID == id && time.Until(prev.expires) > 4*time.Minute {
 		a.resetMu.Unlock()
 		reply(w, 429, nil, "请求过于频繁")
 		return
@@ -240,16 +279,20 @@ func (a *App) forgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	code := fmt.Sprintf("%06d", num.Int64())
-	a.resets[x.Email] = resetEntry{code: code, expires: time.Now().Add(5 * time.Minute)}
+	entry := resetEntry{userID: id, code: code, expires: time.Now().Add(5 * time.Minute)}
+	a.resets[email] = entry
 	a.resetMu.Unlock()
 	port := os.Getenv("SMTP_PORT")
 	if port == "" {
 		port = "587"
 	}
-	err = sendResetMail(host, port, user, pass, x.Email, code, &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}, port == "465")
+	err = sendResetMail(host, port, user, pass, email, code, &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}, port == "465")
 	if err != nil {
 		a.resetMu.Lock()
-		delete(a.resets, x.Email)
+		current := a.resets[email]
+		if current.userID == entry.userID && current.expires == entry.expires {
+			delete(a.resets, email)
+		}
 		a.resetMu.Unlock()
 		reply(w, 502, nil, "邮件发送失败")
 		return
@@ -343,7 +386,7 @@ func (a *App) resetPassword(w http.ResponseWriter, r *http.Request) {
 		fail(w)
 		return
 	}
-	res, err := a.DB.ExecContext(r.Context(), `UPDATE users SET password=? WHERE email=?`, string(hash), x.Email)
+	res, err := a.DB.ExecContext(r.Context(), `UPDATE users SET password=? WHERE id=? AND email=?`, string(hash), entry.userID, x.Email)
 	if err != nil {
 		fail(w)
 		return

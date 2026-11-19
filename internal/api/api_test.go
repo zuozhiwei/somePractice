@@ -135,17 +135,17 @@ func TestExpiredTokenRejected(t *testing.T) {
 func TestAdminRoleChangePreservesPassword(t *testing.T) {
 	db, h := testApp(t)
 	if _, err := db.Exec(`INSERT INTO users(id,username,password,role,total_xp,level)
-		SELECT 2,'teacher',password,'TEACHER',0,0 FROM users WHERE id=1`); err != nil {
+		SELECT 2,'operator',password,'SUPERADMIN',0,0 FROM users WHERE id=1`); err != nil {
 		t.Fatal(err)
 	}
-	login := call(h, "POST", "/api/auth/login", `{"username":"teacher","password":"correct-password"}`, "")
+	login := call(h, "POST", "/api/auth/login", `{"username":"operator","password":"correct-password"}`, "")
 	var response struct {
 		Data struct {
 			Token string
 		}
 	}
 	if login.Code != 200 || json.Unmarshal(login.Body.Bytes(), &response) != nil || response.Data.Token == "" {
-		t.Fatalf("teacher login returned %d", login.Code)
+		t.Fatalf("superadmin login returned %d", login.Code)
 	}
 	if w := call(h, "PUT", "/api/admin/users/1/role?role=INTERNAL", "", response.Data.Token); w.Code != 200 {
 		t.Fatalf("role update %d %s", w.Code, w.Body)
@@ -153,6 +153,70 @@ func TestAdminRoleChangePreservesPassword(t *testing.T) {
 	w := call(h, "POST", "/api/auth/login", `{"username":"alice","password":"correct-password"}`, "")
 	if w.Code != 200 || !bytes.Contains(w.Body.Bytes(), []byte(`"role":"INTERNAL"`)) {
 		t.Fatalf("login after role update returned %d", w.Code)
+	}
+}
+
+func TestStaffPermissionBoundaries(t *testing.T) {
+	db, h := testApp(t)
+	for id, role := range []string{"TEACHER", "SUPERADMIN"} {
+		if _, err := db.Exec(`INSERT INTO users(id,username,password,role,total_xp,level)
+			SELECT ?,?,password,?,0,10 FROM users WHERE id=1`, id+2, role, role); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := db.Exec(`INSERT INTO users(id,username,password,role,total_xp,level)
+		SELECT 4,'internal',password,'INTERNAL',0,0 FROM users WHERE id=1;
+		INSERT INTO user_task_submissions(id,user_id,task_id,status,submission_data,ai_review_count)
+		VALUES(1,1,1,'PENDING','guest work',0),(2,4,1,'PENDING','unassigned internal work',0)`); err != nil {
+		t.Fatal(err)
+	}
+	app := New(db)
+	teacher, err := app.loginToken(2, "TEACHER", "TEACHER")
+	if err != nil {
+		t.Fatal(err)
+	}
+	admin, err := app.loginToken(3, "SUPERADMIN", "SUPERADMIN")
+	if err != nil {
+		t.Fatal(err)
+	}
+	staleAdmin, err := app.loginToken(3, "SUPERADMIN", "TEACHER")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		method, path, body, token string
+		status                    int
+	}{
+		{"GET", "/api/admin/submissions", "", teacher, 200},
+		{"GET", "/api/submissions/2", "", teacher, 403},
+		{"PUT", "/api/submissions/2/review", `{"status":"APPROVED"}`, teacher, 403},
+		{"GET", "/api/submissions/2", "", admin, 200},
+		{"PUT", "/api/submissions/2/review", `{"status":"APPROVED"}`, admin, 200},
+		{"GET", "/api/admin/users", "", teacher, 403},
+		{"GET", "/api/admin/users", "", staleAdmin, 401},
+		{"GET", "/api/tutorials?levelId=1", "", teacher, 200},
+		{"PUT", "/api/tutorials/1", `{"title":"Updated","levelId":2,"sortOrder":3}`, teacher, 403},
+		{"DELETE", "/api/tutorials/1", "", teacher, 403},
+		{"POST", "/api/admin/users/1/password-reset", "", teacher, 403},
+		{"POST", "/api/admin/users/1/password-reset", "", admin, 400},
+		{"DELETE", "/api/admin/users/3", "", admin, 400},
+		{"PUT", "/api/admin/users/3/role?role=TEACHER", "", admin, 404},
+		{"PUT", "/api/tutorials/1", `{"title":"Updated","levelId":2,"sortOrder":3}`, admin, 200},
+		{"DELETE", "/api/tutorials/1", "", admin, 200},
+		{"PUT", "/api/admin/users/1", `{"username":"alice","name":"Student","email":"student@example.test"}`, admin, 200},
+	} {
+		w := call(h, tc.method, tc.path, tc.body, tc.token)
+		if w.Code != tc.status {
+			t.Errorf("%s %s got %d, want %d: %s", tc.method, tc.path, w.Code, tc.status, w.Body)
+		}
+	}
+	w := call(h, "GET", "/api/admin/submissions", "", teacher)
+	if !bytes.Contains(w.Body.Bytes(), []byte("guest work")) || bytes.Contains(w.Body.Bytes(), []byte("unassigned internal work")) {
+		t.Fatalf("teacher saw the wrong submissions: %s", w.Body)
+	}
+	w = call(h, "GET", "/api/admin/users?q=student%40example.test", "", admin)
+	if w.Code != 200 || !bytes.Contains(w.Body.Bytes(), []byte(`"total":1`)) {
+		t.Fatalf("filtered users %d %s", w.Code, w.Body)
 	}
 }
 

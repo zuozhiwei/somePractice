@@ -31,7 +31,7 @@ func (a *App) submissionDetail(w http.ResponseWriter, r *http.Request, user int6
 		bad(w, "提交编号无效")
 		return
 	}
-	rows, err := a.DB.QueryContext(r.Context(), submissionSelect+`WHERE s.id=? AND (s.user_id=? OR EXISTS(SELECT 1 FROM mentorships m WHERE m.mentor_id=? AND m.apprentice_id=s.user_id AND m.status='ACTIVE') OR EXISTS(SELECT 1 FROM users reviewer JOIN users student ON student.id=s.user_id WHERE reviewer.id=? AND student.role='EXTERNAL' AND reviewer.role IN ('INTERNAL','TEACHER') AND COALESCE(reviewer.level,0)>COALESCE(student.level,0)) OR s.reviewer_id=?)`, id, user, user, user, user)
+	rows, err := a.DB.QueryContext(r.Context(), submissionSelect+`WHERE s.id=? AND (s.user_id=? OR EXISTS(SELECT 1 FROM users WHERE id=? AND role='SUPERADMIN') OR EXISTS(SELECT 1 FROM mentorships m WHERE m.mentor_id=? AND m.apprentice_id=s.user_id AND m.status='ACTIVE') OR EXISTS(SELECT 1 FROM users reviewer JOIN users student ON student.id=s.user_id WHERE reviewer.id=? AND student.role='EXTERNAL' AND reviewer.role IN ('INTERNAL','TEACHER','SUPERADMIN') AND COALESCE(reviewer.level,0)>COALESCE(student.level,0)) OR s.reviewer_id=?)`, id, user, user, user, user, user)
 	if err != nil {
 		fail(w)
 		return
@@ -77,7 +77,7 @@ func (a *App) submissionPool(w http.ResponseWriter, r *http.Request, user int64,
 		where = `EXISTS(SELECT 1 FROM mentorships m WHERE m.mentor_id=? AND m.apprentice_id=s.user_id AND m.status='ACTIVE') AND s.id=(SELECT x.id FROM user_task_submissions x WHERE x.user_id=s.user_id AND x.task_id=s.task_id ORDER BY x.submitted_at DESC,x.id DESC LIMIT 1)`
 		args = []any{user}
 	} else {
-		where = `EXISTS(SELECT 1 FROM users reviewer JOIN users student ON student.id=s.user_id WHERE reviewer.id=? AND reviewer.role IN ('INTERNAL','TEACHER') AND student.role='EXTERNAL' AND ((s.status='PENDING' AND COALESCE(reviewer.level,0)>COALESCE(student.level,0)) OR s.reviewer_id=reviewer.id))`
+		where = `EXISTS(SELECT 1 FROM users reviewer JOIN users student ON student.id=s.user_id WHERE reviewer.id=? AND reviewer.role IN ('INTERNAL','TEACHER','SUPERADMIN') AND student.role='EXTERNAL' AND ((s.status='PENDING' AND COALESCE(reviewer.level,0)>COALESCE(student.level,0)) OR s.reviewer_id=reviewer.id))`
 		args = []any{user}
 	}
 	var total int

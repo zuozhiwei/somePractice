@@ -49,7 +49,7 @@ func (a *App) mentorshipRequest(w http.ResponseWriter, r *http.Request, user int
 		bad(w, "用户不存在")
 		return
 	}
-	if role != "INTERNAL" || (mentorRole != "INTERNAL" && mentorRole != "TEACHER") || mentorLevel <= level {
+	if role != "INTERNAL" || (mentorRole != "INTERNAL" && mentorRole != "TEACHER" && mentorRole != "SUPERADMIN") || mentorLevel <= level {
 		bad(w, "仅内部成员可拜师，师父必须为级别更高的内部成员或教师")
 		return
 	}
@@ -279,7 +279,7 @@ func (a *App) mentorshipSearch(w http.ResponseWriter, r *http.Request, user int6
 		bad(w, "查询过长")
 		return
 	}
-	rows, err := a.DB.QueryContext(r.Context(), `SELECT id,username,name,role,total_xp,COALESCE(level,0) FROM users WHERE id<>? AND role IN ('INTERNAL','TEACHER') AND (username LIKE ? OR name LIKE ?) ORDER BY id LIMIT 10`, user, "%"+q+"%", "%"+q+"%")
+	rows, err := a.DB.QueryContext(r.Context(), `SELECT id,username,name,role,total_xp,COALESCE(level,0) FROM users WHERE id<>? AND role IN ('INTERNAL','TEACHER','SUPERADMIN') AND (username LIKE ? OR name LIKE ?) ORDER BY id LIMIT 10`, user, "%"+q+"%", "%"+q+"%")
 	if err != nil {
 		fail(w)
 		return

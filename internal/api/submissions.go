@@ -71,7 +71,7 @@ func (a *App) submit(w http.ResponseWriter, r *http.Request, user int64) {
 	}
 	if levelID.Valid {
 		l, exists := s.byID[levelID.Int64]
-		if exists && role != "TEACHER" {
+		if exists && role != "TEACHER" && role != "SUPERADMIN" {
 			for _, pid := range l.Prereqs {
 				if err = tx.QueryRowContext(r.Context(), `SELECT count(*) FROM user_level_progress WHERE user_id=? AND level_id=? AND status='COMPLETED'`, user, pid).Scan(&count); err != nil {
 					fail(w)

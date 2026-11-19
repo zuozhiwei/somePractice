@@ -1,5 +1,6 @@
 ﻿import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../store/auth'
+import { authApi } from '../api/auth'
 
 const routes = [
   { path: '/', redirect: '/learn' },
@@ -18,7 +19,7 @@ const routes = [
   { path: '/leaderboard', component: () => import('../views/Leaderboard.vue') },
   { path: '/mentorship', component: () => import('../views/Mentorship.vue') },
   { path: '/chat', component: () => import('../views/Chat.vue') },
-  { path: '/admin', component: () => import('../views/AdminDashboard.vue') }
+  { path: '/admin', component: () => import('../views/AdminDashboard.vue'), meta: { staff: true } }
 ]
 
 const router = createRouter({
@@ -26,7 +27,7 @@ const router = createRouter({
   routes
 })
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
   if (to.meta.guest) {
     if (authStore.token) {
@@ -38,9 +39,20 @@ router.beforeEach((to, from, next) => {
   }
   if (!authStore.token) {
     next('/login')
-  } else {
-    next()
+    return
   }
+  if (to.meta.staff) {
+    try {
+      const token = authStore.token
+      const res = await authApi.profile()
+      if (authStore.token !== token) return next('/login')
+      authStore.setAuth(token, res.data.data)
+    } catch {
+      return next(authStore.token ? '/learn' : '/login')
+    }
+    if (!authStore.isTeacher && !authStore.isSuperAdmin) return next('/learn')
+  }
+  next()
 })
 
 export default router

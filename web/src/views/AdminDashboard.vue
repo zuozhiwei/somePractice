@@ -2,20 +2,20 @@
   <div class="admin-page">
     <div class="admin-header">
       <div>
-        <h1 class="admin-title">管理后台</h1>
-        <p class="admin-sub">管理技能点、任务、用户与提交审核</p>
+        <h1 class="admin-title">{{ isSuperAdmin ? '系统管理' : '作业审核' }}</h1>
       </div>
     </div>
 
     <div class="section-card" style="margin-bottom:20px">
       <div class="section-body" style="padding:0">
         <el-tabs v-model="activeTab">
-          <el-tab-pane label="关卡" name="skills" />
-          <el-tab-pane label="任务" name="tasks" />
-          <el-tab-pane label="用户" name="users" />
+          <el-tab-pane v-if="isSuperAdmin" label="关卡" name="skills" />
+          <el-tab-pane v-if="isSuperAdmin" label="任务" name="tasks" />
+          <el-tab-pane v-if="isSuperAdmin" label="教程" name="tutorials" />
+          <el-tab-pane v-if="isSuperAdmin" label="用户" name="users" />
           <el-tab-pane label="提交审核" name="submissions" />
-          <el-tab-pane label="邀请码" name="inviteCodes" />
-          <el-tab-pane label="师徒关系图" name="mentorGraph" />
+          <el-tab-pane v-if="isSuperAdmin" label="邀请码" name="inviteCodes" />
+          <el-tab-pane v-if="isSuperAdmin" label="师徒关系图" name="mentorGraph" />
         </el-tabs>
       </div>
     </div>
@@ -82,7 +82,30 @@
     </div>
 
     <!-- ======================== Users Tab ======================== -->
-    <div v-show="activeTab === 'users'">
+    <div v-if="isSuperAdmin" v-show="activeTab === 'tutorials'">
+      <div class="manage-toolbar">
+        <el-select v-model="tutorialLevelId" filterable placeholder="选择关卡" @change="changeTutorialLevel">
+          <el-option v-for="level in skillsList" :key="level.id" :label="level.name" :value="level.id" />
+        </el-select>
+        <el-button type="primary" :disabled="!tutorialLevelId" @click="openTutorialDialog()">新增教程</el-button>
+      </div>
+      <el-table v-loading="tutorialsLoading" :data="skillTutorials" stripe :empty-text="tutorialLevelId ? '该关卡暂无教程' : '请选择关卡'">
+        <el-table-column prop="title" label="标题" min-width="220" />
+        <el-table-column prop="sortOrder" label="排序" width="85" />
+        <el-table-column label="操作" width="160">
+          <template #default="{ row }">
+            <el-button size="small" type="primary" text @click="openTutorialDialog(row)">编辑</el-button>
+            <el-button size="small" type="danger" text @click="deleteTutorial(row.id)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
+
+    <div v-if="isSuperAdmin" v-show="activeTab === 'users'">
+      <el-form class="manage-toolbar" @submit.prevent="searchUsers">
+        <el-input v-model="userSearch" clearable placeholder="用户名、昵称或邮箱" />
+        <el-button native-type="submit" type="primary" :loading="usersLoading">搜索用户</el-button>
+      </el-form>
       <el-table v-loading="usersLoading" :data="usersList" stripe empty-text="暂无用户">
         <el-table-column prop="id" label="ID" width="55" />
         <el-table-column label="用户" width="170">
@@ -90,6 +113,7 @@
             {{ row.name ? row.name + ' (' + row.username + ')' : row.username }}
           </template>
         </el-table-column>
+        <el-table-column prop="email" label="邮箱" min-width="155" show-overflow-tooltip />
         <el-table-column label="角色" width="90">
           <template #default="{ row }">
             <span class="role-tag" :class="row.role.toLowerCase()">{{ roleText(row.role) }}</span>
@@ -99,19 +123,24 @@
           <template #default="{ row }">
             <div class="level-cell">
               <span class="level-badge" :class="'tier-'+getTierClass(row.level)">{{ levelTitle(row.level) }}</span>
-              <el-input-number v-model="row._level" :min="0" :max="99" size="small" style="width:100px;margin-left:8px" controls-position="right" @change="v => setLevel(row.id, v)" />
+              <el-input-number v-if="row.role !== 'SUPERADMIN'" v-model="row._level" :min="0" :max="99" size="small" style="width:100px;margin-left:8px" controls-position="right" @change="v => setLevel(row.id, v)" />
             </div>
           </template>
         </el-table-column>
         <el-table-column prop="totalXp" label="XP" width="80" align="center" />
         <el-table-column label="操作" min-width="300">
           <template #default="{ row }">
+            <span v-if="row.role === 'SUPERADMIN'">受保护</span>
+            <template v-else>
             <el-select :model-value="row.role" :disabled="row._savingRole" size="small" style="width:85px" @change="v => updateRole(row, v)">
               <el-option label="教师" value="TEACHER" />
               <el-option label="内部" value="INTERNAL" />
               <el-option label="游客" value="EXTERNAL" />
             </el-select>
+            <el-button size="small" type="primary" text @click="openUserEdit(row)">编辑</el-button>
+            <el-button size="small" type="primary" text :loading="resettingUserId === row.id" @click="sendUserReset(row)">重置密码</el-button>
             <el-button size="small" type="danger" text style="margin-left:6px" @click="removeUser(row)">删除</el-button>
+            </template>
           </template>
         </el-table-column>
       </el-table>
@@ -127,6 +156,43 @@
         />
       </div>
     </div>
+
+    <el-dialog v-model="userDialogVisible" title="编辑用户资料" width="min(460px, 94vw)">
+      <el-form label-position="top" @submit.prevent="saveUserProfile">
+        <el-form-item label="用户名">
+          <el-input v-model="userForm.username" maxlength="80" />
+        </el-form-item>
+        <el-form-item label="昵称">
+          <el-input v-model="userForm.name" maxlength="100" />
+        </el-form-item>
+        <el-form-item label="邮箱">
+          <el-input v-model="userForm.email" maxlength="254" />
+        </el-form-item>
+        <el-button native-type="submit" type="primary" :loading="savingUser">保存</el-button>
+        <el-button @click="userDialogVisible = false">取消</el-button>
+      </el-form>
+    </el-dialog>
+
+    <el-dialog v-model="tutorialDialogVisible" :title="editingTutorialId ? '编辑教程' : '新增教程'" width="min(850px, 94vw)">
+      <el-form label-position="top" @submit.prevent="saveTutorial">
+        <el-form-item label="所属关卡">
+          <el-select v-model="tutorialForm.levelId" filterable>
+            <el-option v-for="level in skillsList" :key="level.id" :label="level.name" :value="level.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="标题">
+          <el-input v-model="tutorialForm.title" />
+        </el-form-item>
+        <el-form-item label="内容（Markdown）">
+          <el-input v-model="tutorialForm.content" type="textarea" :rows="10" />
+        </el-form-item>
+        <el-form-item label="排序">
+          <el-input-number v-model="tutorialForm.sortOrder" :min="0" :precision="0" />
+        </el-form-item>
+        <el-button native-type="submit" type="primary" :loading="savingTutorial">保存</el-button>
+        <el-button @click="tutorialDialogVisible = false">取消</el-button>
+      </el-form>
+    </el-dialog>
 
     <!-- ======================== Submissions Tab ======================== -->
     <div v-show="activeTab === 'submissions'">
@@ -183,7 +249,7 @@
           <div class="sub-comment-text">{{ subDetail.reviewComment }}</div>
         </div>
 
-        <div class="sub-section">
+        <div v-if="subDetail.status === 'PENDING' && subDetail.userId !== authStore.user?.id" class="sub-section">
           <div class="sub-section-title">审核操作</div>
           <div class="sub-actions">
             <el-input v-model="subDetail._comment" placeholder="输入评语" size="small" style="width:200px" />
@@ -252,7 +318,7 @@
     </div>
 
     <!-- ==================== Skill Edit Dialog ==================== -->
-    <el-dialog v-model="skillDialogVisible" :title="editingSkill?.id ? '编辑关卡' : '新增关卡'" width="900px" top="3vh" @close="editingSkill = null; skillTutorials = []">
+    <el-dialog v-model="skillDialogVisible" :title="editingSkill?.id ? '编辑关卡' : '新增关卡'" width="900px" top="3vh" @close="editingSkill = null">
       <el-form v-if="skillForm" label-position="top">
         <el-form-item label="名称">
           <el-input v-model="skillForm.name" placeholder="如：认识你的工具箱" />
@@ -298,32 +364,6 @@
           </el-select>
         </el-form-item>
 
-        <!-- Tutorials -->
-        <div v-if="editingSkill?.id" class="tutorial-mgr">
-          <div class="tutorial-mgr-header">
-            <span style="font-weight:600;font-size:14px">📖 教程管理</span>
-            <el-button size="small" type="primary" @click="openTutorialDialog()">新增教程</el-button>
-          </div>
-          <div v-if="!skillTutorials.length" style="color:#94a3b8;font-size:13px;padding:12px 0">暂无教程</div>
-          <div v-for="(t, idx) in skillTutorials" :key="t.id" class="tutorial-row">
-            <div class="tutorial-row-header">
-              <span class="tutorial-idx">{{ idx + 1 }}</span>
-              <span class="tutorial-title-text">{{ t.title }}</span>
-              <span class="tutorial-order">排序: {{ t.sortOrder }}</span>
-              <el-button size="small" text type="primary" @click="editTutorial(t)">编辑</el-button>
-              <el-button size="small" text type="danger" @click="deleteTutorial(t.id)">删除</el-button>
-            </div>
-            <div v-if="editingTutorialId === t.id" class="tutorial-edit-area">
-              <el-input v-model="tutorialForm.title" placeholder="教程标题" style="margin-bottom:8px" />
-              <el-input v-model="tutorialForm.content" type="textarea" :rows="8" placeholder="教程内容（支持 Markdown）" />
-              <div style="margin-top:8px;display:flex;gap:8px">
-                <el-button size="small" type="primary" @click="saveTutorial(t.id)" :loading="savingTutorial">保存教程</el-button>
-                <el-button size="small" @click="cancelTutorialEdit">取消</el-button>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div v-else style="color:#94a3b8;font-size:13px;padding:8px 0">保存关卡后可管理教程</div>
       </el-form>
       <template #footer>
         <el-button @click="skillDialogVisible = false">取消</el-button>
@@ -379,11 +419,14 @@ import { ref, onMounted, reactive, computed, watch, nextTick, onBeforeUnmount } 
 import * as echarts from 'echarts'
 import { adminApi } from '../api/admin'
 import { tasksApi } from '../api/tasks'
+import { useAuthStore } from '../store/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 
-const activeTab = ref('skills')
+const authStore = useAuthStore()
+const isSuperAdmin = computed(() => authStore.isSuperAdmin)
+const activeTab = ref(isSuperAdmin.value ? 'skills' : 'submissions')
 const skillsList = ref([])
 const tasksList = ref([])
 const usersList = ref([])
@@ -395,6 +438,13 @@ const totalUsers = ref(0)
 const userPageSize = 20
 const userPage = ref(1)
 const usersLoading = ref(false)
+const userSearch = ref('')
+const appliedUserSearch = ref('')
+const userDialogVisible = ref(false)
+const editingUserId = ref(null)
+const userForm = reactive({ username: '', name: '', email: '' })
+const savingUser = ref(false)
+const resettingUserId = ref(null)
 const newInviteCode = ref('')
 const newInviteDesc = ref('')
 const newInviteDays = ref(7)
@@ -435,12 +485,6 @@ function openSkillDialog(row) {
         xpReward: 50,
         prerequisiteLevelIds: []
       })
-  // 加载教程列表
-  if (row?.id) {
-    fetchSkillTutorials(row.id)
-  } else {
-    skillTutorials.value = []
-  }
   skillDialogVisible.value = true
 }
 
@@ -535,76 +579,89 @@ async function saveTask() {
 }
 
 // --- Tutorial management ---
+const tutorialLevelId = ref(null)
 const skillTutorials = ref([])
+const tutorialsLoading = ref(false)
+const tutorialDialogVisible = ref(false)
 const editingTutorialId = ref(null)
-const tutorialForm = reactive({ title: '', content: '' })
+const tutorialForm = reactive({ levelId: null, title: '', content: '', sortOrder: 0 })
 const savingTutorial = ref(false)
 
-async function fetchSkillTutorials(skillId) {
+let tutorialRequest = 0
+async function fetchSkillTutorials(levelId = tutorialLevelId.value) {
+  const request = ++tutorialRequest
+  tutorialsLoading.value = true
   try {
-    const res = await adminApi.listTutorials(skillId)
-    skillTutorials.value = res.data.data || []
-  } catch (e) { /* ignore */ }
+    const res = await adminApi.listTutorials(levelId)
+    if (request === tutorialRequest) skillTutorials.value = res.data.data
+  } catch (error) {
+    if (request === tutorialRequest) ElMessage.error(error.response?.data?.message || '加载教程失败')
+  } finally {
+    if (request === tutorialRequest) tutorialsLoading.value = false
+  }
 }
 
-function openTutorialDialog() {
-  editingTutorialId.value = 'new'
-  tutorialForm.title = ''
-  tutorialForm.content = ''
+function changeTutorialLevel(levelId) {
+  skillTutorials.value = []
+  fetchSkillTutorials(levelId)
 }
 
-function editTutorial(t) {
-  editingTutorialId.value = t.id
-  tutorialForm.title = t.title
-  tutorialForm.content = t.content
+function openTutorialDialog(row) {
+  editingTutorialId.value = row?.id ?? null
+  const nextOrder = Math.max(0, ...skillTutorials.value.map(t => t.sortOrder)) + 1
+  Object.assign(tutorialForm, {
+    levelId: tutorialLevelId.value,
+    title: row?.title ?? '',
+    content: row?.content ?? '',
+    sortOrder: row?.sortOrder ?? nextOrder
+  })
+  tutorialDialogVisible.value = true
 }
 
-function cancelTutorialEdit() {
-  editingTutorialId.value = null
-  tutorialForm.title = ''
-  tutorialForm.content = ''
-}
-
-async function saveTutorial(tutorialId) {
-  if (!tutorialForm.title.trim()) {
-    ElMessage.warning('请输入教程标题')
+async function saveTutorial() {
+  if (!tutorialForm.levelId || !tutorialForm.title.trim() || !Number.isInteger(tutorialForm.sortOrder)) {
+    ElMessage.warning('请填写关卡、标题和排序')
     return
   }
   savingTutorial.value = true
   try {
-    const data = {
-      levelId: editingSkill.value.id,
-      title: tutorialForm.title,
-      content: tutorialForm.content,
-      sortOrder: skillTutorials.value.length + 1
-    }
-    if (tutorialId !== 'new') {
-      await adminApi.updateTutorial(tutorialId, data)
-      ElMessage.success('教程已更新')
+    const data = { ...tutorialForm }
+    if (editingTutorialId.value) {
+      await adminApi.updateTutorial(editingTutorialId.value, data)
     } else {
       await adminApi.createTutorial(data)
-      ElMessage.success('教程已创建')
     }
-    cancelTutorialEdit()
-    await fetchSkillTutorials(editingSkill.value.id)
-  } catch (e) {
-    ElMessage.error(e.response?.data?.message || '保存失败')
-  } finally { savingTutorial.value = false }
+    tutorialDialogVisible.value = false
+    ElMessage.success('教程已保存')
+    if (data.levelId !== tutorialLevelId.value) {
+      tutorialLevelId.value = data.levelId
+      skillTutorials.value = []
+    }
+    await fetchSkillTutorials()
+  } catch (error) {
+    ElMessage.error(error.response?.data?.message || '保存教程失败')
+  } finally {
+    savingTutorial.value = false
+  }
 }
 
 async function deleteTutorial(id) {
   try {
     await ElMessageBox.confirm('确定删除该教程？', '确认', { type: 'warning' })
+  } catch {
+    return
+  }
+  try {
     await adminApi.deleteTutorial(id)
     ElMessage.success('已删除')
-    await fetchSkillTutorials(editingSkill.value.id)
-  } catch (e) {
-    if (e !== 'cancel') ElMessage.error('删除失败')
+    await fetchSkillTutorials()
+  } catch (error) {
+    ElMessage.error(error.response?.data?.message || '删除教程失败')
   }
 }
 
 // --- Data fetching ---
-function roleText(r) { return { TEACHER:'教师',INTERNAL:'内部',EXTERNAL:'游客' }[r]||r }
+function roleText(r) { return { SUPERADMIN:'超级管理员',TEACHER:'教师',INTERNAL:'内部',EXTERNAL:'游客' }[r]||r }
 
 function levelTitle(lv) {
   if (lv >= 70) return '👑 王者 Lv.' + lv
@@ -688,6 +745,11 @@ function changeUserPage(page) {
   if (page !== userPage.value) fetchUsers(page)
 }
 
+function searchUsers() {
+  appliedUserSearch.value = userSearch.value.trim()
+  fetchUsers(1)
+}
+
 let userListRequest = 0
 async function fetchUsers(page = userPage.value) {
   const request = ++userListRequest
@@ -695,7 +757,7 @@ async function fetchUsers(page = userPage.value) {
   try {
     let data
     for (;;) {
-      const res = await adminApi.listUsers(page - 1, userPageSize)
+      const res = await adminApi.listUsers(page - 1, userPageSize, appliedUserSearch.value)
       if (request !== userListRequest) return
       data = res.data.data
       const lastPage = Math.max(1, Math.ceil(data.total / userPageSize))
@@ -725,6 +787,48 @@ async function removeUser(row) {
     ElMessage.success('已删除')
     await fetchUsers()
   } catch (e) { if (e !== 'cancel') ElMessage.error('删除失败') }
+}
+function openUserEdit(row) {
+  editingUserId.value = row.id
+  Object.assign(userForm, { username: row.username, name: row.name || '', email: row.email || '' })
+  userDialogVisible.value = true
+}
+async function saveUserProfile() {
+  if (!userForm.username.trim()) {
+    ElMessage.warning('请输入用户名')
+    return
+  }
+  savingUser.value = true
+  try {
+    await adminApi.updateUser(editingUserId.value, { ...userForm })
+    userDialogVisible.value = false
+    ElMessage.success('用户资料已更新')
+    await fetchUsers()
+  } catch (error) {
+    ElMessage.error(error.response?.data?.message || '保存用户资料失败')
+  } finally {
+    savingUser.value = false
+  }
+}
+async function sendUserReset(row) {
+  if (!row.email) {
+    ElMessage.warning('该用户未绑定邮箱')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(`向 ${row.username} 的绑定邮箱 ${row.email} 发送密码重置验证码？`, '重置密码', { type: 'warning' })
+  } catch {
+    return
+  }
+  resettingUserId.value = row.id
+  try {
+    await adminApi.sendPasswordReset(row.id)
+    ElMessage.success('重置验证码已发送')
+  } catch (error) {
+    ElMessage.error(error.response?.data?.message || '发送验证码失败')
+  } finally {
+    resettingUserId.value = null
+  }
 }
 async function updateRole(row, role) {
   row._savingRole = true
@@ -898,14 +1002,19 @@ onBeforeUnmount(() => {
   if (chart) { chart.dispose(); chart = null }
 })
 
-onMounted(async () => { await Promise.all([fetchSkills(), fetchTasks(), fetchUsers(), fetchSubs(), fetchInviteCodes()]) })
+onMounted(async () => {
+  const requests = [fetchSubs()]
+  if (isSuperAdmin.value) requests.push(fetchSkills(), fetchUsers(), fetchInviteCodes())
+  await Promise.all(requests)
+})
 </script>
 
 <style scoped>
 .admin-page { max-width: 1300px; }
 .admin-header { margin-bottom: 24px; }
 .admin-title { font-size: 24px; font-weight: 700; color: var(--color-text); margin: 0 0 4px; }
-.admin-sub { font-size: 14px; color: var(--color-text-secondary); margin: 0; }
+.manage-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; }
+.manage-toolbar :is(.el-select, .el-input) { width: min(320px, 100%); }
 
 .lv-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
 .lv-badge.lv-1, .lv-badge.lv-2 { background: #f1f5f9; color: #64748b; }
@@ -913,6 +1022,7 @@ onMounted(async () => { await Promise.all([fetchSkills(), fetchTasks(), fetchUse
 .lv-badge.lv-4, .lv-badge.lv-5 { background: #fee2e2; color: #dc2626; }
 .role-tag { font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
 .role-tag.teacher { background: #ede9fe; color: #7c3aed; }
+.role-tag.superadmin { background: #fef3c7; color: #92400e; }
 .role-tag.internal { background: #eef2ff; color: #6366f1; }
 .role-tag.external { background: #f1f5f9; color: #64748b; }
 .preview-text { font-size: 13px; color: #64748b; }
@@ -946,17 +1056,6 @@ onMounted(async () => { await Promise.all([fetchSkills(), fetchTasks(), fetchUse
 .sub-status-tag.ai_reviewed { background: #e0f2fe; color: #0284c7; }
 
 /* --- Tutorial manager --- */
-.tutorial-mgr {
-  margin-top: 16px; padding: 16px; background: #f8fafc; border-radius: 10px; border: 1px solid var(--color-border);
-}
-.tutorial-mgr-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.tutorial-row { border-bottom: 1px solid #e2e8f0; padding: 8px 0; }
-.tutorial-row:last-child { border-bottom: none; }
-.tutorial-row-header { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-.tutorial-idx { width: 22px; height: 22px; border-radius: 50%; background: #6366f1; color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.tutorial-title-text { flex: 1; font-weight: 500; }
-.tutorial-order { font-size: 12px; color: #94a3b8; }
-.tutorial-edit-area { margin-top: 8px; padding: 8px 0 4px 30px; }
 
 /* Level badges */
 .level-cell { display: flex; align-items: center; }

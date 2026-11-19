@@ -387,7 +387,7 @@ const externalSubs = ref([])
 const externalPage = ref(1)
 const externalTotal = ref(0)
 
-const isInternal = computed(() => ['INTERNAL', 'TEACHER'].includes(authStore.user?.role))
+const isInternal = computed(() => ['INTERNAL', 'TEACHER', 'SUPERADMIN'].includes(authStore.user?.role))
 const isExternal = computed(() => authStore.user?.role === 'EXTERNAL')
 
 const timelineLevels = computed(() => [...levels.value].sort((a, b) => {
@@ -515,7 +515,7 @@ const isOwnSubmission = computed(() =>
   !!authStore.user?.id && reviewSub.value?.userId === authStore.user.id
 )
 
-function roleText(r) { return { TEACHER:'教师',INTERNAL:'内部',EXTERNAL:'游客' }[r]||r }
+function roleText(r) { return { SUPERADMIN: '超级管理员', TEACHER:'教师',INTERNAL:'内部',EXTERNAL:'游客' }[r]||r }
 function levelShort(lv) {
   if (lv >= 70) return '👑王者'
   if (lv >= 60) return '🏆宗师'
