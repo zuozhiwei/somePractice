@@ -84,7 +84,7 @@ func (a *App) submit(w http.ResponseWriter, r *http.Request, user int64) {
 			}
 		}
 		now := time.Now().In(a.zone).Format("2006-01-02 15:04:05.999999999")
-		_, err = tx.ExecContext(r.Context(), `INSERT INTO user_level_progress(level_id,user_id,status,progress,xp_earned,started_at) VALUES(?,?,'LEARNING',1,0,?) ON CONFLICT(level_id,user_id) DO UPDATE SET status=CASE WHEN status='LOCKED' OR started_at IS NULL THEN 'LEARNING' ELSE status END,progress=CASE WHEN progress=0 THEN 1 ELSE progress END,started_at=COALESCE(started_at,excluded.started_at)`, levelID.Int64, user, now)
+		_, err = tx.ExecContext(r.Context(), `INSERT INTO user_level_progress(level_id,user_id,status,progress,xp_earned,started_at) VALUES(?,?,'LEARNING',1,0,?) ON CONFLICT(level_id,user_id) DO UPDATE SET status=CASE WHEN status='LOCKED' THEN 'LEARNING' ELSE status END,progress=CASE WHEN progress=0 THEN 1 ELSE progress END,started_at=COALESCE(started_at,excluded.started_at)`, levelID.Int64, user, now)
 		if err != nil {
 			fail(w)
 			return

@@ -56,7 +56,7 @@
           <el-table-column prop="taskTitle" label="任务" min-width="200" />
           <el-table-column label="状态" width="100">
             <template #default="{ row }">
-              <span class="status-tag" :class="row.status.toLowerCase()">{{ subStatusText(row.status) }}</span>
+              <span class="status-tag" :class="row.status?.toLowerCase()">{{ submissionStatusText(row.status) }}</span>
             </template>
           </el-table-column>
           <el-table-column label="提交时间" width="170">
@@ -84,6 +84,7 @@
 </template>
 
 <script setup>
+import { submissionStatusText } from '../submissionStatus'
 import { ref, onMounted, reactive } from 'vue'
 import { authApi } from '../api/auth'
 import { tasksApi } from '../api/tasks'
@@ -101,7 +102,6 @@ const editForm = reactive({ name: '', email: '' })
 
 function roleText(r) { return { SUPERADMIN: '超级管理员', TEACHER:'教师',INTERNAL:'内部成员',EXTERNAL:'游客' }[r]||r }
 
-function subStatusText(s) { return { APPROVED:'已通过',REJECTED:'未通过',PENDING:'审核中',AI_REVIEWED:'AI已评' }[s]||s }
 
 function formatTime(ts) {
   if (!ts) return '-'

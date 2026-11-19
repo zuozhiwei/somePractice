@@ -5,6 +5,6 @@ export const authApi = {
   register: data => request.post('/auth/register', data),
   profile: () => request.get('/auth/profile'),
   updateProfile: data => request.put('/auth/profile', data),
-  forgotPassword: email => request.post('/auth/forgot-password', { email }, { timeout: 30000 }),
+  forgotPassword: identifier => request.post('/auth/forgot-password', { identifier }, { timeout: 30000 }),
   resetPassword: data => request.post('/auth/reset-password', data)
 }

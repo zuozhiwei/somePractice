@@ -16,6 +16,7 @@ export const adminApi = {
   listUsers: (page, size, q) => request.get('/admin/users', { params: { page, size, q } }),
   updateUser: (id, data) => request.put(`/admin/users/${id}`, data),
   sendPasswordReset: id => request.post(`/admin/users/${id}/password-reset`, null, { timeout: 30000 }),
+  issueRecoveryCode: id => request.post(`/admin/users/${id}/recovery-code`, { identityVerified: true }),
   updateRole: (id, role) => request.put(`/admin/users/${id}/role`, null, { params: { role } }),
   setLevel: (id, level) => request.put(`/admin/users/${id}/level`, null, { params: { level } }),
   deleteUser: id => request.delete(`/admin/users/${id}`),

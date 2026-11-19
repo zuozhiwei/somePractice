@@ -81,5 +81,11 @@ func Migrate(db *sql.DB) error {
 	if err := enforceRelations(db); err != nil {
 		return err
 	}
-	return enforceUniqueBusinessKeys(db)
+	if err := enforceUniqueBusinessKeys(db); err != nil {
+		return err
+	}
+	if err := ensureExploration(db); err != nil {
+		return err
+	}
+	return ensureAccountRecovery(db)
 }

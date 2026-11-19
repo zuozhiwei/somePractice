@@ -75,12 +75,18 @@ func (a *App) leaderboard(w http.ResponseWriter, r *http.Request, user int64) {
 			return
 		}
 	}
-	var total int
-	if err = a.DB.QueryRowContext(r.Context(), `SELECT count(*) FROM users`).Scan(&total); err != nil {
+	tx, err := a.DB.BeginTx(r.Context(), &sql.TxOptions{ReadOnly: true})
+	if err != nil {
 		fail(w)
 		return
 	}
-	rows, err := a.DB.QueryContext(r.Context(), `SELECT id,username,name,avatar,total_xp,COALESCE(level,0) FROM users ORDER BY total_xp DESC,id LIMIT ? OFFSET ?`, size, page*size)
+	defer tx.Rollback()
+	var total, leaderXP int
+	if err = tx.QueryRowContext(r.Context(), `SELECT count(*), COALESCE(max(total_xp),0) FROM users`).Scan(&total, &leaderXP); err != nil {
+		fail(w)
+		return
+	}
+	rows, err := tx.QueryContext(r.Context(), `SELECT id,username,name,avatar,total_xp,COALESCE(level,0) FROM users ORDER BY total_xp DESC,id LIMIT ? OFFSET ?`, size, page*size)
 	if err != nil {
 		fail(w)
 		return
@@ -102,9 +108,22 @@ func (a *App) leaderboard(w http.ResponseWriter, r *http.Request, user int64) {
 		fail(w)
 		return
 	}
-	ok(w, map[string]any{"content": content, "total": total})
+	if err = tx.Commit(); err != nil {
+		fail(w)
+		return
+	}
+	ok(w, map[string]any{"content": content, "total": total, "leaderXp": leaderXP})
 }
 func (a *App) mission(w http.ResponseWriter, r *http.Request, user int64) {
+	var chapterID int64
+	if raw := r.URL.Query().Get("chapterId"); raw != "" {
+		id, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || id <= 0 {
+			bad(w, "章节编号无效")
+			return
+		}
+		chapterID = id
+	}
 	s, err := a.snapshot(r, user)
 	if err != nil {
 		fail(w)
@@ -115,108 +134,75 @@ func (a *App) mission(w http.ResponseWriter, r *http.Request, user int64) {
 		fail(w)
 		return
 	}
-	allCompleted := len(s.levels) > 0
-	var taskCount int
-	if err = a.DB.QueryRowContext(r.Context(), `SELECT count(*) FROM tasks WHERE level_id IS NOT NULL`).Scan(&taskCount); err != nil {
-		fail(w)
-		return
-	}
-	hasTasks := taskCount > 0
+	var hasLevels, hasIncomplete, foundChapter bool
+	var available []int64
+	chapters := make(map[int64]string)
 	for _, m := range maps {
+		id := m["id"].(int64)
+		if chapterID != 0 && chapterID != id {
+			continue
+		}
+		foundChapter = true
+		chapters[id] = m["name"].(string)
 		for _, l := range s.levels {
-			if !l.MapID.Valid || l.MapID.Int64 != m["id"].(int64) {
+			if !l.MapID.Valid || l.MapID.Int64 != id {
 				continue
 			}
+			hasLevels = true
 			if s.progress[l.ID].Status == "COMPLETED" {
 				continue
 			}
-			allCompleted = false
-			if !s.unlocked(l) {
-				continue
+			hasIncomplete = true
+			if s.unlocked(l) {
+				available = append(available, l.ID)
 			}
-			tasks, err := a.loadTasks(r, l.ID)
+		}
+	}
+	if len(available) > 0 {
+		tasks, err := a.learningTasks(r.Context(), user, available, true)
+		if err != nil {
+			fail(w)
+			return
+		}
+		if len(tasks) > 0 {
+			t := tasks[0]
+			l := s.byID[t.LevelID.Int64]
+			tutorials, err := a.levelTutorials(r.Context(), l.ID)
 			if err != nil {
 				fail(w)
 				return
 			}
-			if len(tasks) > 0 {
-				hasTasks = true
+			state := "AVAILABLE"
+			if awaitingReview(t.Status) {
+				state = "WAITING_REVIEW"
 			}
-			var selected *task
-			var selStatus string
-			var feedback sql.NullString
-			for _, t := range tasks {
-				var approved int
-				if err = a.DB.QueryRowContext(r.Context(), `SELECT count(*) FROM user_task_submissions WHERE user_id=? AND task_id=? AND status='APPROVED'`, user, t.ID).Scan(&approved); err != nil {
-					fail(w)
-					return
-				}
-				if approved > 0 {
-					continue
-				}
-				var status string
-				var fb sql.NullString
-				err = a.DB.QueryRowContext(r.Context(), `SELECT COALESCE(status,'NONE'),ai_feedback FROM user_task_submissions WHERE user_id=? AND task_id=? ORDER BY submitted_at DESC,id DESC LIMIT 1`, user, t.ID).Scan(&status, &fb)
-				if err == sql.ErrNoRows {
-					status = "NONE"
-				} else if err != nil {
-					fail(w)
-					return
-				}
-				if selected == nil {
-					copy := t
-					selected = &copy
-					selStatus = status
-					feedback = fb
-				}
-				if status != "PENDING" && status != "AI_REVIEWED" {
-					copy := t
-					selected = &copy
-					selStatus = status
-					feedback = fb
-					break
-				}
-			}
-			if selected != nil {
-				rows, err := a.DB.QueryContext(r.Context(), `SELECT id,title,content,sort_order FROM tutorials WHERE level_id=? ORDER BY sort_order,id`, l.ID)
-				if err != nil {
-					fail(w)
-					return
-				}
-				tutorials := []any{}
-				for rows.Next() {
-					var id int64
-					var title string
-					var content sql.NullString
-					var ord int
-					if rows.Scan(&id, &title, &content, &ord) != nil {
-						rows.Close()
-						fail(w)
-						return
-					}
-					tutorials = append(tutorials, map[string]any{"id": id, "title": title, "content": nullString(content), "sortOrder": ord})
-				}
-				if rows.Err() != nil {
-					rows.Close()
-					fail(w)
-					return
-				}
-				rows.Close()
-				state := "AVAILABLE"
-				if selStatus == "PENDING" || selStatus == "AI_REVIEWED" {
-					state = "WAITING_REVIEW"
-				}
-				t := *selected
-				ok(w, map[string]any{"state": state, "task": map[string]any{"id": t.ID, "title": t.Title, "description": nullString(t.Description), "acceptanceCriteria": criteria(t), "xpReward": t.XP, "sortOrder": nullInt(t.Order), "submissionStatus": selStatus, "aiFeedback": nullString(feedback), "aiReviewEnabled": t.AI != 0}, "tutorials": tutorials})
-				return
-			}
+			ok(w, map[string]any{
+				"state": state,
+				"level": map[string]any{"id": l.ID, "name": l.Name, "chapterName": chapters[l.MapID.Int64], "orderIndex": l.Order},
+				"task":  t.response(), "tutorials": tutorials,
+			})
+			return
 		}
 	}
+	if chapterID != 0 && !foundChapter {
+		reply(w, 404, nil, "章节不存在")
+		return
+	}
 	state := "BLOCKED"
-	if allCompleted {
-		state = "COMPLETE"
-	} else if len(s.levels) == 0 || !hasTasks {
+	if !hasLevels {
 		state = "EMPTY"
+	} else if !hasIncomplete {
+		state = "COMPLETE"
+	} else {
+		var hasTasks bool
+		if err := a.DB.QueryRowContext(r.Context(), `SELECT EXISTS(SELECT 1 FROM tasks t JOIN levels l ON l.id=t.level_id
+			WHERE l.map_id IS NOT NULL AND (?=0 OR l.map_id=?))`, chapterID, chapterID).Scan(&hasTasks); err != nil {
+			fail(w)
+			return
+		}
+		if !hasTasks {
+			state = "EMPTY"
+		}
 	}
 	ok(w, map[string]any{"state": state, "task": nil, "tutorials": []any{}})
 }

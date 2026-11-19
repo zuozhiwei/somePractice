@@ -9,3 +9,4 @@ CGO_ENABLED=0 go build -trimpath -o bin/skilltree ./cmd/server
 CGO_ENABLED=0 go build -trimpath -o bin/skilltree-migrate ./cmd/migrate-postgres
 CGO_ENABLED=0 go build -trimpath -o bin/skilltree-repair ./cmd/repair-migration
 CGO_ENABLED=0 go build -trimpath -o bin/skilltree-backup ./cmd/backup
+CGO_ENABLED=0 go build -trimpath -o bin/skilltree-curriculum ./cmd/curriculum

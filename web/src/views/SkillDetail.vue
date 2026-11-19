@@ -62,7 +62,7 @@
                   <div class="task-title">{{ task.title }}</div>
                   <div class="task-tags">
                     <span class="status-tag" :class="task.submissionStatus.toLowerCase()">
-                      {{ statusText(task.submissionStatus) }}
+                      {{ submissionStatusText(task.submissionStatus) }}
                     </span>
                     <span class="xp-tag">{{ task.xpReward }} XP</span>
                     <span v-if="task.acceptanceCriteria?.length" class="criteria-count">
@@ -88,17 +88,21 @@
               </div>
               <div v-if="task.aiFeedback" class="ai-feedback-box">
                 <div class="ai-feedback-header">
-                  <span>🤖 AI 评审结果</span>
+                  <span>🤖 最近 AI 评语</span>
                   <span class="ai-score">{{ extractScore(task.aiFeedback) }} 分</span>
                 </div>
                 <div class="ai-feedback-text">{{ extractFeedback(task.aiFeedback) }}</div>
+              </div>
+              <div v-if="task.reviewComment" class="task-review-note">
+                <div class="desc-label">最近审核意见</div>
+                <div>{{ task.reviewComment }}</div>
               </div>
               <div class="task-actions">
                 <div class="task-status-info">
                   <span v-if="task.submissionStatus === 'APPROVED'" class="hint-text approved">🎉 你已完成此任务</span>
                   <span v-else-if="task.submissionStatus === 'PENDING'" class="hint-text pending">⏳ 等待审核中...（可继续做技能点内其他任务）</span>
                   <span v-else-if="task.submissionStatus === 'REJECTED'" class="hint-text rejected">❌ 未通过，请重新提交</span>
-                  <span v-else-if="task.submissionStatus === 'AI_REVIEWED'" class="hint-text ai-reviewed">🤖 AI 已评审，等待最终确认</span>
+                  <span v-else-if="task.submissionStatus === 'AI_REVIEWED'" class="hint-text ai-reviewed">🤖 AI 已评审，等待人工审核</span>
                   <span v-else class="hint-text">点击下方按钮提交你的完成成果</span>
                 </div>
                 <div class="task-action-btns">
@@ -109,7 +113,7 @@
                   <el-button type="primary" size="default" round
                              :disabled="task.submissionStatus === 'APPROVED' || skill?.userStatus?.status === 'LOCKED'"
                              @click.stop="openSubmit(task)">
-                    {{ task.submissionStatus === 'REJECTED' ? '重新提交' : task.submissionStatus === 'APPROVED' ? '已完成' : task.submissionStatus === 'PENDING' ? '修改后重新提交' : '提交任务' }}
+                    {{ submissionActionText(task.submissionStatus) }}
                   </el-button>
                 </div>
               </div>
@@ -128,6 +132,7 @@
 </template>
 
 <script setup>
+import { submissionStatusText, submissionActionText } from '../submissionStatus'
 import { ref, onMounted, reactive } from 'vue'
 import { useRoute } from 'vue-router'
 import { skillsApi } from '../api/skills'
@@ -145,7 +150,6 @@ const expandedTask = ref(null)
 const openTutorials = reactive({})
 
 function levelTag(l) { const m = {1:'info',2:'',3:'warning',4:'danger',5:'danger'}; return m[l]||'info' }
-function statusText(s) { return { APPROVED:'已通过',REJECTED:'未通过',PENDING:'审核中',AI_REVIEWED:'AI已评',NONE:'待提交'}[s]||'待提交' }
 function extractScore(fb) { const m = fb?.match(/AI评分:\s*(\d+)/); return m ? m[1] : '--' }
 function extractFeedback(fb) { const idx = fb?.indexOf('\n'); return idx > -1 ? fb.substring(idx + 1).trim() : fb }
 function toggleTutorial(idx) { openTutorials[idx] = !openTutorials[idx] }
@@ -266,6 +270,7 @@ onMounted(fetchDetail)
 .criteria-num { color: #6366f1; font-weight: 600; min-width: 20px; }
 .criteria-weight { font-size: 11px; color: #94a3b8; margin-left: auto; }
 
+.task-review-note { margin: 8px 20px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .task-actions {
   position: sticky;
   bottom: 0;

@@ -53,6 +53,16 @@ func (a *App) review(w http.ResponseWriter, r *http.Request, reviewer int64) {
 		reply(w, 403, nil, "不能审核自己的提交")
 		return
 	}
+	// A successful review can raise the student's level above the reviewer.
+	// Its original reviewer can still safely retry the same result.
+	if oldReviewer.Valid && oldReviewer.Int64 == reviewer && !awaitingReview(old.String) {
+		if old.String == status {
+			ok(w, map[string]any{"id": id, "userId": user, "taskId": task, "status": old.String})
+		} else {
+			bad(w, "该提交已审核，不能修改结果；请提交新作业")
+		}
+		return
+	}
 	if err = tx.QueryRowContext(r.Context(), `SELECT EXISTS(SELECT 1 FROM users WHERE id=? AND role='SUPERADMIN')
 		OR EXISTS(SELECT 1 FROM mentorships WHERE mentor_id=? AND apprentice_id=? AND status='ACTIVE')`, reviewer, reviewer, user).Scan(&count); err != nil {
 		fail(w)
@@ -68,11 +78,7 @@ func (a *App) review(w http.ResponseWriter, r *http.Request, reviewer int64) {
 			return
 		}
 	}
-	if old.String != "PENDING" {
-		if oldReviewer.Valid && oldReviewer.Int64 == reviewer && old.String == status {
-			ok(w, map[string]any{"id": id, "userId": user, "taskId": task, "status": old.String})
-			return
-		}
+	if !awaitingReview(old.String) {
 		bad(w, "该提交已审核，不能修改结果；请提交新作业")
 		return
 	}
@@ -178,15 +184,20 @@ func completeLevel(ctx context.Context, tx *sql.Tx, user, level int64, now strin
 			return err
 		}
 	}
-	var done, oldLevel int
-	if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM user_level_progress WHERE user_id=? AND status='COMPLETED'`, user).Scan(&done); err != nil {
+	// Only levels with at least one task can be completed. Empty draft
+	// levels therefore do not dilute progress when the curriculum grows.
+	var done, playable, oldLevel int
+	if err = tx.QueryRowContext(ctx, `SELECT count(*), count(CASE WHEN p.status='COMPLETED' THEN 1 END)
+		FROM levels l LEFT JOIN user_level_progress p ON p.level_id=l.id AND p.user_id=?
+		WHERE EXISTS (SELECT 1 FROM tasks t WHERE t.level_id=l.id)`, user).Scan(&playable, &done); err != nil {
 		return err
 	}
 	if err = tx.QueryRowContext(ctx, `SELECT COALESCE(level,0) FROM users WHERE id=?`, user).Scan(&oldLevel); err != nil {
 		return err
 	}
-	newLevel := (done*70 + 41) / 42
-	if newLevel != oldLevel {
+	const maxLevel = 70
+	newLevel := (done*maxLevel + playable - 1) / playable
+	if newLevel > oldLevel {
 		if _, err = tx.ExecContext(ctx, `UPDATE users SET level=? WHERE id=?`, newLevel, user); err != nil {
 			return err
 		}

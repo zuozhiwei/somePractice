@@ -1,205 +1,327 @@
 <template>
-  <div class="scene-frame">
-    <div ref="viewport" class="viewport" aria-label="关卡地图，方向键沿路行走，靠近据点按 E 进入" tabindex="0" @keydown="onKey" @keyup="rest">
-      <div ref="board" class="board" :class="{ fitted: overview }">
-        <canvas ref="terrain" class="terrain" aria-hidden="true" @click="walkOnRoad" />
-        <span class="compass" aria-hidden="true"><b>N</b><i></i></span>
-        <button class="guide-marker" type="button" :style="position(177, 251)" title="拜访驿站领取推荐委托" aria-label="拜访驿站领取推荐委托" @click="visitGuide">
-          <span>!</span>
-        </button>
-        <button v-for="stop in stops" :key="stop.id" type="button" class="outpost"
-                :class="[stop.status.toLowerCase(), { selected: stop.id === selectedId }]"
-                :style="position(stop.x, stop.y)"
-                :aria-label="`第 ${stop.number} 关 ${stop.name}，${STATUS[stop.status]}`"
-                :aria-pressed="stop.id === selectedId" @click="choose(stop)">
-          <span class="pin"><el-icon v-if="stop.status === 'LOCKED'"><Lock /></el-icon>
-            <el-icon v-else-if="stop.status === 'COMPLETED'"><Check /></el-icon><strong v-else>{{ stop.number }}</strong></span>
-          <span class="caption">{{ stop.name }}</span>
-        </button>
-        <div v-if="actor" class="actor" :style="position(actor.x - 11, actor.y - 2)" aria-hidden="true">
-          <span class="actor-shadow"></span><span class="sprite" :style="spriteStyle"></span>
+  <div class="atlas-frame">
+    <div class="map-stage" :style="{ '--map-ratio': atlas.width + ' / ' + atlas.height }">
+      <div ref="viewport" class="viewport" :class="{ dragging }" role="group" tabindex="0"
+           aria-label="可探索的世界地图" aria-describedby="atlas-help"
+           @pointerdown="camera.start" @pointermove="camera.move" @pointerup="camera.end"
+           @pointercancel="camera.end" @pointerleave="pointerLeave" @click.capture="camera.cancelClick"
+           @keydown="onKey">
+        <div class="world-plane" :style="boardStyle" :class="{ detailed }">
+          <canvas ref="terrain" class="terrain" :style="terrainStyle" aria-hidden="true" @click="terrainClick" />
+          <button v-for="region in atlas.regions" :key="region.chapterId" type="button" class="region-name"
+                  :class="{ active: region.chapterId === selectedNode?.chapterId }"
+                  :style="position(region.labelX,region.labelY)" :aria-label="'探索第 ' + (region.index + 1) + ' 章 ' + hub(region).name"
+                  @focus="revealFocus($event,{x:region.labelX,y:region.labelY})" @click="visitRegion(region)">
+            <span>{{ region.index + 1 }}</span>{{ hub(region).name }}
+          </button>
+          <template v-for="node in atlas.nodes" :key="node.id">
+            <button v-if="node.kind === 'level' && detailed" type="button" class="outpost"
+                    :class="[places.get(node.id).status.toLowerCase(), { selected: node.id === selectedId }]"
+                    :style="position(node.x,node.y)" :aria-pressed="node.id === selectedId"
+                    :aria-label="accessibleName(node)" :title="accessibleName(node)"
+                    @focus="revealFocus($event,node)" @click="choose(node)">
+              <span class="marker"><el-icon v-if="places.get(node.id).status === 'LOCKED'"><Lock /></el-icon><el-icon v-else-if="places.get(node.id).status === 'COMPLETED'"><Check /></el-icon><b v-else>{{ node.number }}</b></span>
+              <span class="node-label">{{ places.get(node.id).name }}</span>
+            </button>
+            <i v-else-if="node.kind === 'level'" class="survey-dot" :class="places.get(node.id).status.toLowerCase()" :style="position(node.x,node.y)" aria-hidden="true"></i>
+            <button v-else-if="detailed" type="button" class="camp" :style="position(node.x,node.y)"
+                    :aria-label="'拜访' + places.get(node.id).guide.role + places.get(node.id).guide.name + '，查看本章推荐任务'"
+                    :title="places.get(node.id).guide.role + ' · ' + places.get(node.id).guide.name"
+                    @focus="revealFocus($event,node)" @click="campTasks(node)">
+              <i class="guide-art" :class="{ examiner:places.get(node.id).chapterIndex === 7 }" :style="{ backgroundPositionX:(places.get(node.id).chapterIndex % 7) / 6 * 100 + '%' }"></i>
+              <span class="guide-name">{{ places.get(node.id).guide.name }}</span>
+            </button>
+          </template>
+          <div v-if="actor" class="actor" :class="{ walking }" :style="actorStyle" aria-hidden="true">
+            <span class="shadow"></span><span class="sprite" :style="spriteStyle"></span>
+          </div>
         </div>
       </div>
+      <div class="map-controls" aria-label="地图视野">
+        <button type="button" title="查看全图" aria-label="查看全图" @click="camera.overview"><el-icon><FullScreen /></el-icon></button>
+        <button type="button" title="定位角色" aria-label="定位角色" @click="locateActor"><el-icon><Aim /></el-icon></button>
+        <span></span>
+        <button type="button" title="放大地图" aria-label="放大地图" :disabled="scale >= maxScale - .001" @click="camera.zoomBy(1.5)"><el-icon><Plus /></el-icon></button>
+        <button type="button" title="缩小地图" aria-label="缩小地图" :disabled="overWorld" @click="camera.zoomBy(1/1.5)"><el-icon><Minus /></el-icon></button>
+      </div>
+      <div class="compass" aria-hidden="true">N<span></span></div>
+      <button v-show="!overWorld" type="button" class="mini-map" title="查看全图" aria-label="从小地图返回全图" @click="camera.overview">
+        <canvas ref="mini" aria-hidden="true"></canvas><i :style="miniWindow"></i>
+      </button>
+      <p v-if="hint" class="map-hint" role="status">{{ hint }}</p>
     </div>
-    <div class="map-tools">
-      <button type="button" title="定位已选关卡" aria-label="定位已选关卡" @click="center(selectedStop)"><el-icon><Aim /></el-icon></button>
-      <button class="zoom" type="button" :title="overview ? '放大地图' : '全景地图'" :aria-label="overview ? '放大地图' : '全景地图'" :aria-pressed="overview" @click="toggleOverview"><el-icon><component :is="overview ? ZoomIn : ZoomOut" /></el-icon></button>
-    </div>
-    <span v-if="hint" class="scene-hint" role="status">{{ hint }}</span>
-    <span class="legend"><i class="open"></i>可挑战<i class="cleared"></i>已通关<i class="closed"></i>未解锁</span>
+    <footer>
+      <div class="legend"><span><i class="available"></i>可挑战</span><span><i class="complete"></i>已通关</span><span><i class="locked"></i>未解锁</span></div>
+      <p id="atlas-help"><span class="desktop-help">点章节放大，拖动查看；方向键选路，E 进入。</span><span class="touch-help">点章节放大，拖动或双指缩放，点地点前往。</span></p>
+    </footer>
   </div>
 </template>
 
 <script setup>
-import { computed, ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
-import { Aim, Check, Lock, ZoomIn, ZoomOut } from '@element-plus/icons-vue'
-import { HEIGHT, WIDTH, locate, roadHit, ROAD_LENGTH, STATUS } from './expedition'
-import { paintScene } from './coast'
+import { ref, shallowRef, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { FullScreen, Aim, Plus, Minus, Lock, Check } from '@element-plus/icons-vue'
+import { paintAtlas } from './atlasPaint'
+import { routeBetween, routeToRoad, routeBetweenRoads, nearestOnRoad, directionalNeighbor } from './worldAtlas'
+import { useAtlasCamera } from './useAtlasCamera'
 import traveler from './assets/traveler.webp'
 
 const props = defineProps({
-  stops: { type: Array, required: true },
-  selectedId: Number, startingId: Number, themeIndex: Number, seed: Number,
+  atlas: { type:Object, required:true }, places: { type:Map, required:true },
+  selectedId: String, restoreFocus: Boolean
 })
-const emit = defineEmits(['select', 'enter', 'mission'])
-const terrain = ref(null), board = ref(null), viewport = ref(null), overview = ref(false)
-const selectedStop = computed(() => props.stops.find(stop => stop.id === props.selectedId))
-const distance = ref(null), frame = ref(0), facing = ref(2)
-const hint = ref('')
-const actor = computed(() => distance.value == null ? null : locate(distance.value))
-const spriteStyle = computed(() => ({
-  backgroundImage: `url("${traveler}")`,
-  backgroundPosition: `${frame.value * 50}% ${facing.value * 100 / 3}%`,
+const emit = defineEmits(['select','enter','mission','arrive'])
+const terrain = ref(null), viewport = ref(null), mini = ref(null)
+const camera = useAtlasCamera(viewport, () => props.atlas)
+const { scale,fit,maxScale,overWorld,boardStyle,dragging } = camera
+const detailed = computed(() => scale.value >= .74 || scale.value > fit.value * 1.4)
+const padding = computed(() => ({
+  x:Math.ceil(Math.max(0,camera.width.value / fit.value - props.atlas.width) / 2),
+  y:Math.ceil(Math.max(0,camera.height.value / fit.value - props.atlas.height) / 2)
 }))
-let animation = 0, resize, motionPreference, hintTimer
-const reduceMotion = () => motionPreference?.matches === true
-const position = (x,y) => ({ left: `${x / WIDTH * 100}%`, top: `${y / HEIGHT * 100}%` })
+const terrainStyle = computed(() => ({
+  left:-padding.value.x / props.atlas.width * 100 + '%', top:-padding.value.y / props.atlas.height * 100 + '%',
+  width:(1 + 2 * padding.value.x / props.atlas.width) * 100 + '%',
+  height:(1 + 2 * padding.value.y / props.atlas.height) * 100 + '%'
+}))
+const actor = shallowRef(null), facing = ref(0), frame = ref(0), walking = ref(false), hint = ref('')
+const selectedNode = computed(() => props.atlas.nodeById.get(props.selectedId))
+const position = (x,y) => ({ left:x / props.atlas.width * 100 + '%', top:y / props.atlas.height * 100 + '%' })
+const actorStyle = computed(() => ({ ...position(actor.value.x,actor.value.y), width:(detailed.value ? 39 : 26) + 'px' }))
+const spriteStyle = computed(() => ({
+  backgroundImage:'url(' + traveler + ')', backgroundPosition:frame.value * 50 + '% ' + facing.value * (100/3) + '%'
+}))
+const miniWindow = computed(() => {
+  const worldW = props.atlas.width * scale.value, worldH = props.atlas.height * scale.value
+  return { left:Math.max(0,-camera.offset.value.x/worldW)*100+'%', top:Math.max(0,-camera.offset.value.y/worldH)*100+'%',
+    width:Math.min(1,camera.width.value/worldW)*100+'%', height:Math.min(1,camera.height.value/worldH)*100+'%' }
+})
+const hubId = region => 'hub:' + region.chapterId
+const hub = region => props.places.get(hubId(region))
+const regionOf = node => props.atlas.regions.find(region => region.chapterId === node.chapterId)
+const accessibleName = node => '第 ' + node.number + ' 关 ' + props.places.get(node.id).name + '，' + props.places.get(node.id).statusText
+let raf, hintTimer, actorId, motion
 
-function draw() {
-  if (!board.value || !terrain.value) return
-  const scale = Math.min(2, window.devicePixelRatio || 1)
-  terrain.value.width = Math.max(1, Math.round(board.value.clientWidth * scale))
-  terrain.value.height = Math.max(1, Math.round(board.value.clientHeight * scale))
-  paintScene(terrain.value, props.themeIndex, props.seed)
+function renderTerrain() {
+  if (!terrain.value || !mini.value) return
+  const { width, height } = props.atlas
+  const {x:padX, y:padY} = padding.value
+  const paintedWidth = width + 2 * padX, paintedHeight = height + 2 * padY
+  const density = Math.min(1.7, 2680 / paintedWidth, 1900 / paintedHeight)
+  terrain.value.width = Math.ceil(paintedWidth * density)
+  terrain.value.height = Math.ceil(paintedHeight * density)
+  paintAtlas(terrain.value, props.atlas, {padX,padY})
+  mini.value.width = 172
+  mini.value.height = Math.round(172 * height / width)
+  mini.value.getContext('2d')?.drawImage(terrain.value, padX*density, padY*density, width*density, height*density, 0, 0, mini.value.width, mini.value.height)
 }
-function center(stop, smooth = true) {
-  if (!stop || !viewport.value || !board.value) return
-  const left = board.value.clientWidth * stop.x / WIDTH - viewport.value.clientWidth / 2
-  viewport.value.scrollTo({ left, behavior: smooth && !reduceMotion() ? 'smooth' : 'instant' })
+function message(text) {
+  clearTimeout(hintTimer)
+  hint.value = text
+  hintTimer = setTimeout(() => { hint.value = '' },2300)
 }
-async function toggleOverview() {
-  overview.value = !overview.value
-  await nextTick()
-  center(selectedStop.value, false)
-}
-function stopAnimation() {
-  cancelAnimationFrame(animation)
+function halt() {
+  cancelAnimationFrame(raf)
+  walking.value = false
   frame.value = 0
 }
-function walkTo(targetDistance, arrived) {
-  stopAnimation()
-  const start = distance.value ?? 0
-  const segment = targetDistance - start
-  facing.value = segment < 0 ? 1 : 2
-  if (!segment || reduceMotion()) { distance.value = targetDistance; arrived?.(); return }
-  const duration = Math.min(2200, Math.max(380, Math.abs(segment) * 4))
-  const began = performance.now()
-  function step(now) {
-    const t = Math.min(1, (now - began) / duration)
-    distance.value = start + segment * t
-    frame.value = t === 1 ? 0 : 1 + Math.floor((now - began) / 145) % 2
-    if (t < 1) animation = requestAnimationFrame(step)
-    else arrived?.()
+function animate(path, destination, arrival) {
+  if (!path.length) return
+  halt()
+  const lengths = [0]
+  for (let i = 1; i < path.length; i++) lengths.push(lengths[i-1] + Math.hypot(path[i].x - path[i-1].x,path[i].y - path[i-1].y))
+  const total = lengths.at(-1)
+  function finish() {
+    walking.value = false
+    actor.value = path.at(-1)
+    actorId = destination
+    frame.value = 0
+    arrival?.()
   }
-  animation = requestAnimationFrame(step)
+  if (!total || motion?.matches) { finish(); return }
+  actorId = null
+  walking.value = true
+  const start = performance.now(), duration = Math.min(2800,Math.max(280,total*4))
+  let segment = 1
+  function tick(now) {
+    const dist = total * Math.min(1,(now - start) / duration)
+    while (segment < path.length - 1 && lengths[segment] <= dist) segment++
+    const a = path[segment-1], b = path[segment], dx = b.x-a.x, dy = b.y-a.y
+    const fraction = (dist-lengths[segment-1]) / (lengths[segment]-lengths[segment-1] || 1)
+    actor.value = { x:a.x+fraction*dx, y:a.y+fraction*dy }
+    facing.value = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 1 : 2) : (dy < 0 ? 3 : 0)
+    frame.value = 1+Math.floor((now-start)/130)%2
+    if (dist < total) raf = requestAnimationFrame(tick)
+    else finish()
+  }
+  raf = requestAnimationFrame(tick)
 }
-function choose(stop) {
-  emit('select', stop)
-  walkTo(stop.distance)
-  center(stop)
+function actorHit() {
+  return actor.value && nearestOnRoad(props.atlas,actor.value.x,actor.value.y)
 }
-function tell(message) {
-  hint.value = message
-  clearTimeout(hintTimer)
-  hintTimer = setTimeout(() => { hint.value = '' }, 2200)
+function travel(node, arrival) {
+  const path = actorId
+    ? routeBetween(props.atlas,actorId,node.id)
+    : routeToRoad(props.atlas,node.id,actorHit()).reverse()
+  animate(path,node.id,() => {
+    if (node.kind === 'hub') emit('arrive',node.chapterId)
+    arrival?.()
+  })
 }
-function visitGuide() {
-  const harbor = roadHit(174,302,2)
-  walkTo(harbor.distance, () => emit('mission'))
+function choose(node) {
+  emit('select',node.id)
+  travel(node)
 }
-function nearby() {
-  return props.stops.find(stop => Math.abs(stop.distance - distance.value) < 27)
+function visitRegion(region) {
+  const node = props.atlas.nodeById.get(hubId(region))
+  choose(node)
+  camera.focusRegion(region)
 }
-function walkOnRoad(event) {
-  const rect = terrain.value.getBoundingClientRect()
-  const x = (event.clientX - rect.left) * WIDTH / rect.width
-  const y = (event.clientY - rect.top) * HEIGHT / rect.height
-  const hit = roadHit(x, y, Math.max(18, 16 * WIDTH / rect.width))
-  if (!hit) { tell('点击浅色小路或据点，旅人会沿路前往。'); return }
-  viewport.value.focus({ preventScroll: true })
-  walkTo(hit.distance, () => { const stop = nearby(); if (stop) emit('select', stop) })
+function visitCampById(id) {
+  const region = props.atlas.regions.find(r => r.chapterId === id)
+  if (region) visitRegion(region)
 }
-function onKey(event) {
-  if (event.altKey || event.ctrlKey || event.metaKey) return
-  // Arrow keys navigate focused checkpoint buttons. On the map they walk along the trail.
-  const index = props.stops.findIndex(stop => stop.id === props.selectedId)
-  const key = event.key.toLowerCase()
-  const direction = { arrowleft:-1, arrowup:1, arrowright:1, arrowdown:-1, w:1, a:-1, s:-1, d:1 }[key]
-  if (direction) {
-    event.preventDefault()
-    if (key.startsWith('arrow') && event.target.closest('.outpost')) {
-      const next = props.stops[index + direction]
-      if (next) {
-        choose(next)
-        board.value.querySelectorAll('.outpost')[index + direction]?.focus({ preventScroll: true })
-      }
+defineExpose({visitCampById})
+function campTasks(node) {
+  emit('select',node.id)
+  travel(node, () => emit('mission',node.chapterId))
+}
+function locateActor() {
+  if (!actor.value) return
+  const region = closestRegion(actor.value)
+  if (region) camera.focusRegion(region,actor.value)
+}
+function revealFocus(event,p) {
+  if (event.target.matches(':focus-visible')) camera.reveal(p)
+}
+function pointerLeave(event) {
+  if (!viewport.value.hasPointerCapture(event.pointerId)) camera.end(event)
+}
+function closestRegion(point) {
+  let best, gap = Infinity
+  for (const region of props.atlas.regions) {
+    const distance = Math.hypot((point.x-region.x)/region.width,(point.y-region.y)/region.height)
+    if (distance < gap) { best=region; gap=distance }
+  }
+  return best
+}
+function terrainClick(event) {
+  viewport.value.focus({ preventScroll:true })
+  const point = camera.pointInWorld(camera.eventPosition(event))
+  if (!detailed.value) {
+    const region = closestRegion(point)
+    if (region && Math.hypot((point.x-region.x)/region.width,(point.y-region.y)/region.height) < .58) {
+      visitRegion(region)
       return
     }
-    stopAnimation()
-    distance.value = Math.max(0, Math.min(ROAD_LENGTH, (distance.value ?? 0) + direction * 12))
-    facing.value = direction < 0 ? 1 : 2
-    frame.value = reduceMotion() ? 0 : 1 + Math.floor(distance.value / 12) % 2
-    center(actor.value, false)
-    const stop = nearby()
-    if (stop) emit('select', stop)
+  }
+  const hit = nearestOnRoad(props.atlas,point.x,point.y,14/scale.value)
+  if (!hit) { message('点道路或地图上的地点前往。'); return }
+  const endId = hit.t < .045 ? hit.edge.from : hit.t > .955 ? hit.edge.to : null
+  if (endId) { choose(props.atlas.nodeById.get(endId)); return }
+  const path = actorId ? routeToRoad(props.atlas,actorId,hit) : routeBetweenRoads(props.atlas,actorHit(),hit)
+  animate(path, null)
+}
+function onKey(event) {
+  if (event.ctrlKey || event.altKey || event.metaKey) return
+  const key = event.key.toLowerCase()
+  const direction = { arrowleft:[-1,0], a:[-1,0], arrowright:[1,0], d:[1,0], arrowup:[0,-1], w:[0,-1], arrowdown:[0,1], s:[0,1] }[key]
+  if (direction) {
+    event.preventDefault()
+    if (walking.value && event.repeat) return
+    const hit = actorId ? null : actorHit()
+    let next
+    if (hit) {
+      const ends = [props.atlas.nodeById.get(hit.edge.from),props.atlas.nodeById.get(hit.edge.to)]
+      const score = p => (p.x-hit.x)*direction[0] + (p.y-hit.y)*direction[1]
+      next = ends.sort((a,b) => score(b)-score(a))[0]
+    } else next = directionalNeighbor(props.atlas, actorId, ...direction)
+    if (!next) { message('这个方向没有相连的路，试试其他方向。'); return }
+    choose(next)
+    camera.reveal(next)
   } else if (key === 'e' || (key === 'enter' && event.target === viewport.value)) {
     event.preventDefault()
-    const stop = nearby()
-    if (!stop) { tell('靠近据点后按 E 进入关卡。'); return }
-    emit('select', stop)
-    if (stop.status !== 'LOCKED') emit('enter', stop)
-    else tell('这个据点尚未解锁，解锁条件见下方关卡说明。')
+    if (!actorId) { message('到达据点后可以进入关卡。'); return }
+    const place = props.places.get(actorId)
+    if (place?.level && place.status === 'LOCKED') message('关卡未解锁，可在地图下方查看前置条件。')
+    else if (place?.level) emit('enter',actorId)
+    else { emit('arrive',place.chapter.id); emit('mission',place.chapter.id) }
+  } else if (key === '+' || key === '=' || key === '-') {
+    event.preventDefault()
+    camera.zoomBy(key === '-' ? 1/1.5 : 1.5)
+  } else if (key === 'home') {
+    event.preventDefault()
+    camera.overview()
   }
 }
-function rest(event) {
-  if (event.key.toLowerCase().startsWith('arrow') || ['w','a','s','d'].includes(event.key.toLowerCase())) frame.value = 0
+function reset(initial) {
+  halt()
+  const node = props.atlas.nodeById.get(props.selectedId) || props.atlas.nodes[0]
+  actor.value = node
+  actorId = node?.id
+  renderTerrain()
+  if (initial && props.restoreFocus && node) camera.focusRegion(regionOf(node),node)
+  else if (initial) camera.overview()
 }
-function settle() {
-  stopAnimation()
-  const start = props.stops.find(stop => stop.id === props.startingId)
-  distance.value = start?.distance ?? props.stops[0]?.distance ?? 0
-  center(selectedStop.value, false)
-}
-watch(() => props.stops, () => { settle(); draw() }, { flush:'post' })
 onMounted(() => {
-  motionPreference = matchMedia('(prefers-reduced-motion: reduce)')
-  resize = new ResizeObserver(draw)
-  resize.observe(board.value)
-  settle()
+  motion = window.matchMedia('(prefers-reduced-motion: reduce)')
+  reset(true)
 })
-onBeforeUnmount(() => { stopAnimation(); clearTimeout(hintTimer); resize?.disconnect() })
+watch(() => props.atlas, () => reset(false), { flush:'post' })
+watch(padding, renderTerrain, { flush:'post' })
+onBeforeUnmount(() => { halt(); clearTimeout(hintTimer) })
 </script>
 
 <style scoped>
-.scene-frame { position:relative; background:#add1c2; isolation:isolate; }
-.viewport { width:100%; overflow-x:auto; scrollbar-color:#659d90 #aacfbd; scrollbar-width:thin; overscroll-behavior-x:contain; }
-.board { position:relative; width:100%; min-width:640px; aspect-ratio:1000 / 456; container-type:inline-size; }
-.board.fitted { min-width:0; }
-.terrain { position:absolute; inset:0; display:block; width:100%; height:100%; }
-.guide-marker { position:absolute; transform:translate(-50%,-100%); width:40px; height:38px; display:grid; align-items:start; justify-items:center; padding:0; background:none; border:0; cursor:pointer; }
-.guide-marker span { padding:2px 6px 3px; border:1px solid #8c6a32; border-radius:7px 7px 7px 0; background:#ffe7a2; color:#775016; font:bold 14px Georgia,serif; box-shadow:0 2px 4px #3343223d; }
-.scene-hint { position:absolute; left:50%; top:10px; transform:translateX(-50%); padding:7px 11px; border-radius:6px; background:#223f34ed; color:#faf9e9; font-size:12px; text-align:center; pointer-events:none; }
-.outpost { position:absolute; z-index:2; transform:translate(-50%,-50%); display:grid; place-items:center; width:44px; height:44px; border:0; padding:0; background:transparent; color:#fffef4; cursor:pointer; }
-.pin { display:grid; place-items:center; width:clamp(20px,2.35cqw,32px); aspect-ratio:1; border:2px solid #f9e4af; border-radius:50%; background:#bc7b32; box-shadow:0 2px 0 #886a43,0 4px 6px #253f3352; font-size:clamp(12px,1.4cqw,16px); }
-.outpost.completed .pin { background:#306954; }
-.outpost.locked .pin { color:#f5f1dc; border-color:#d0d3b7; background:#62746d; }
-.outpost.selected .pin { outline:2px solid #fff4ce; outline-offset:3px; }
-.outpost:focus-visible { outline:2px solid #172f25; border-radius:50%; }
-.caption { pointer-events:none; position:absolute; top:calc(50% + clamp(15px,1.7cqw,22px)); max-width:clamp(68px,11cqw,150px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; background:#304e43ed; border:1px solid #d8d8b470; border-radius:5px; box-shadow:0 2px 4px #38574730; padding:3px 7px; font-weight:600; font-size:clamp(10px,1.04cqw,13px); line-height:1.35; }
-.outpost.selected .caption { color:#3b412c; background:#fff0c8; border-color:#bda36c; }
-.actor { pointer-events:none; position:absolute; z-index:3; width:clamp(30px,4.8cqw,56px); aspect-ratio:96 / 112; transform:translate(-70%,-98%); }
-.actor-shadow { position:absolute; bottom:1%; left:27%; right:21%; height:10%; border-radius:50%; background:#233d3840; }
-.sprite { position:absolute; inset:0; background-size:300% 400%; background-repeat:no-repeat; }
-.compass { position:absolute; top:5%; left:3%; width:28px; height:45px; display:grid; justify-items:center; align-content:start; color:#365d50; opacity:.82; pointer-events:none; }
-.compass b { font:700 10px Georgia,serif; }
-.compass i { display:block; width:15px; height:27px; background:linear-gradient(90deg,#496b58 50%,#e5e6c5 50%); clip-path:polygon(50% 0,100% 85%,50% 66%,0 85%); }
-.map-tools { position:absolute; top:12px; right:12px; display:flex; gap:5px; }
-.map-tools button { width:35px; height:35px; display:grid; place-items:center; border:1px solid #739e86; border-radius:8px; background:#f8f8e7e6; color:#355547; font-size:17px; cursor:pointer; }
-.map-tools { display:none; }
-.legend { position:absolute; bottom:12px; right:12px; display:flex; align-items:center; gap:5px; padding:6px 9px; border:1px solid #b5c7ae; background:#f4f6e6ed; color:#405c4d; border-radius:6px; font-size:11px; pointer-events:none; }
-.legend i { width:7px; height:7px; border-radius:50%; }
-.legend i:not(:first-child) { margin-left:4px; }
-.open { background:#ad722e; }.cleared { background:#306954; }.closed { background:#667670; }
-@media(max-width:760px) { .map-tools {display:flex;} .legend {bottom:8px;right:8px;} .fitted .caption {display:none;} }
-@media(max-width:430px) { .map-tools {top:8px;right:8px;} .fitted .pin {width:19px;font-size:10px;} .legend {font-size:10px;padding:4px 6px;} }
+.atlas-frame { overflow:hidden; border:1px solid #bdcbbd; border-radius:15px; background:#fffdf4; box-shadow:0 4px 15px #27453515; }
+.map-stage { position:relative; width:100%; aspect-ratio:var(--map-ratio); min-height:270px; max-height:clamp(440px,62vh,720px); background:#85bcb4; }
+.viewport,.world-plane,.terrain { position:absolute; inset:0; }
+.viewport { overflow:clip; touch-action:none; user-select:none; cursor:grab; background:linear-gradient(115deg,#b4d6c1,#80b9b2 45%,#89c0b9 85%,#a4cabe); }
+.viewport.dragging,.viewport.dragging * {cursor:grabbing;}
+.world-plane { right:auto; bottom:auto; }
+.terrain { display:block; width:100%; height:100%; }
+.region-name,.outpost,.camp,.actor,.survey-dot { position:absolute; }
+.region-name { z-index:4; display:inline-flex; align-items:center; justify-content:center; gap:6px; transform:translate(-50%,-50%); max-width:145px; padding:5px 10px 5px 5px; background:#fffae8f2; color:#274538; font-size:13px; font-weight:700; line-height:1.2; border:1px solid #8c9d81; border-radius:16px; box-shadow:0 2px 4px #34594738; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.region-name span { display:grid;place-items:center;min-width:18px;height:18px;background:#dce3ca;color:#45593c;border-radius:50%;font:700 11px/1 system-ui; }
+.region-name.active,.region-name:hover { border-color:#8a733e; background:#fff0c7; }
+.region-name.active span { color:#fff5d9; background:#886d3b; }
+.outpost,.camp { z-index:3; transform:translate(-50%,-50%); width:38px;height:38px; display:grid;place-items:center;border:0;padding:0;background:none; }
+.camp { margin-left:19px; }
+.marker,.camp .el-icon { display:grid; place-items:center; width:23px; height:23px; border:2px solid #fff3cd; box-shadow:0 1px 3px #233f3480; border-radius:50%; background:#9b6827; color:#fff; font-size:12px; }
+.outpost.locked .marker {background:#62716a;} .outpost.completed .marker {background:#2c6650;}
+.outpost.selected .marker {outline:2px solid #ffeabb;outline-offset:2px;}
+.node-label { position:absolute; pointer-events:none; top:calc(50% + 13px); white-space:nowrap; max-width:100px; overflow:hidden; text-overflow:ellipsis; padding:2px 6px; border-radius:4px; color:#fff; background:#274d41ed; font-size:10px; line-height:1.4; font-weight:600; }
+.outpost.selected .node-label,.outpost:hover .node-label,.outpost:focus-visible .node-label { background:#fff0c9; color:#304632; z-index:3; }
+.camp .el-icon { background:#fff2cc; color:#5c5130; border-color:#987a41; border-radius:6px; font-size:15px; }
+.guide-art { position:absolute; width:26px; height:39px; bottom:14px; background:url('./assets/camp-guides.png') no-repeat left top / 700% 100%; image-rendering:pixelated; filter:drop-shadow(0 1px 1px #32483970); }
+.guide-art.examiner { filter:hue-rotate(310deg) saturate(.8) drop-shadow(0 1px 1px #32483970); }
+.guide-name { position:absolute; white-space:nowrap; top:22px; background:#fcf2d2; border:1px solid #ae9363; padding:1px 6px; border-radius:4px; font-size:11px; color:#604c2c; font-weight:700; }
+.survey-dot { transform:translate(-50%,-50%); pointer-events:none; border-radius:50%; width:7px;height:7px; background:#af762f; border:1px solid #fff3cc; }
+.survey-dot.completed {background:#265f49;} .survey-dot.locked {background:#687969;}
+.actor { z-index:5; pointer-events:none; transform:translate(-70%,-94%); aspect-ratio:96 / 112; }
+.actor .sprite { position:absolute; inset:0; background-repeat:no-repeat; background-size:300% 400%; }
+.actor .shadow { position:absolute; bottom:0; left:28%; right:20%; height:10%; background:#22443766;border-radius:50%; }
+.map-controls { position:absolute; z-index:6; top:11px; right:11px; display:flex; gap:3px; align-items:center; padding:3px; border:1px solid #8fac96; border-radius:9px; background:#fbfbeced; box-shadow:0 2px 5px #42664f20; }
+.map-controls button { display:grid;place-items:center;width:34px;height:33px;border:0;border-radius:6px;color:#345342;background:transparent;font-size:17px; }
+.map-controls button:hover { background:#dfe9d7; } .map-controls button:disabled { color:#7e9183; opacity:.65; }
+.map-controls>span {width:1px;height:17px;background:#c2cdb6;}
+.compass { position:absolute; top:12px; left:13px; display:grid;justify-items:center; gap:2px; pointer-events:none; color:#2d584e; font:bold 10px Georgia,serif; }
+.compass span {width:12px; height:20px; background:linear-gradient(90deg,#43695a 50%,#e6e6ca 50%);clip-path:polygon(50% 0,100% 88%,50% 69%,0 88%);}
+.mini-map { position:absolute; bottom:10px;right:10px;width:88px;border:2px solid #f5f3dd;border-radius:5px;box-shadow:0 1px 6px #31544470; padding:0; overflow:hidden; }
+.mini-map canvas { width:100%; display:block; } .mini-map i { position:absolute;border:1px solid #fffaf0;outline:1px solid #3d6453; background:#fff6da25; }
+.map-hint { position:absolute; bottom:13px;left:50%; transform:translateX(-50%); padding:6px 10px; border-radius:6px;background:#294b3eeb;color:#fff9ea; font-size:12px; text-align:center;pointer-events:none; }
+footer { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; border-top:1px solid #becdbd; padding:10px 15px; font-size:12px; color:#53665a; }
+.legend,.legend span {display:inline-flex;align-items:center;gap:6px;} .legend {gap:13px;}
+.legend i {width:7px;height:7px;border-radius:50%;} .available {background:#a57531;} .complete {background:#306750;} .locked {background:#667369;} .outpost.locked {background:none;}
+.touch-help {display:none;}
+button:focus-visible,.viewport:focus-visible {outline:3px solid #9c6422;outline-offset:-2px;}
+@media(max-width:620px) {
+  .region-name {max-width:94px; font-size:11px; gap:3px; padding:4px 6px 4px 3px; }
+  .region-name span {min-width:14px;height:14px;font-size:9px;}
+  .map-controls {top:auto;bottom:5px;right:6px;} .map-controls button {width:29px;height:28px;}
+  .map-stage {min-height:298px;}
+  .mini-map {width:58px;bottom:6px;left:6px;right:auto;}
+  .survey-dot {width:5px;height:5px;}
+  footer {padding:9px 11px;gap:5px;font-size:11px;}
+}
+@media(max-width:620px),(pointer:coarse) { .touch-help {display:inline;} .desktop-help {display:none;} }
 </style>

@@ -120,22 +120,6 @@ func (s snapshot) levelStatus(l level) (string, int) {
 	}
 	return "LEARNING", 1
 }
-func (a *App) loadTasks(r *http.Request, levelID int64) ([]task, error) {
-	rows, err := a.DB.QueryContext(r.Context(), `SELECT id,title,description,acceptance_criteria,xp_reward,sort_order,ai_review_enabled,is_builtin,created_by,created_at,level_id FROM tasks WHERE level_id=? ORDER BY sort_order,id`, levelID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := []task{}
-	for rows.Next() {
-		var t task
-		if err = rows.Scan(&t.ID, &t.Title, &t.Description, &t.Criteria, &t.XP, &t.Order, &t.AI, &t.Builtin, &t.CreatedBy, &t.CreatedAt, &t.LevelID); err != nil {
-			return nil, err
-		}
-		out = append(out, t)
-	}
-	return out, rows.Err()
-}
 func criteria(t task) any {
 	if !t.Criteria.Valid {
 		return []any{}
@@ -152,14 +136,17 @@ func (a *App) taskList(w http.ResponseWriter, r *http.Request, user int64) {
 		bad(w, "levelId 无效")
 		return
 	}
-	tasks, err := a.loadTasks(r, levelID)
+	tasks, err := a.learningTasks(r.Context(), user, []int64{levelID}, false)
 	if err != nil {
 		fail(w)
 		return
 	}
 	out := []any{}
 	for _, t := range tasks {
-		out = append(out, map[string]any{"id": t.ID, "title": t.Title, "description": nullString(t.Description), "acceptanceCriteria": criteria(t), "levelId": nullInt(t.LevelID), "xpReward": t.XP, "builtin": t.Builtin != 0, "createdBy": nullInt(t.CreatedBy), "createdAt": a.timestamp(t.CreatedAt), "sortOrder": nullInt(t.Order), "aiReviewEnabled": t.AI != 0})
+		row := t.response()
+		row["levelId"], row["builtin"] = nullInt(t.LevelID), t.Builtin != 0
+		row["createdBy"], row["createdAt"] = nullInt(t.CreatedBy), a.timestamp(t.CreatedAt)
+		out = append(out, row)
 	}
 	ok(w, out)
 }
@@ -252,54 +239,130 @@ func (a *App) mapDetail(w http.ResponseWriter, r *http.Request, user int64) {
 		bad(w, "地图编号无效")
 		return
 	}
-	s, err := a.snapshot(r, user)
+	chapters, err := a.chaptersWithLevels(r, user, id)
 	if err != nil {
 		fail(w)
 		return
 	}
-	summaries, err := a.summaries(r, user, s)
-	if err != nil {
-		fail(w)
-		return
-	}
-	var found map[string]any
-	for _, m := range summaries {
-		if m["id"].(int64) == id {
-			found = m
-			break
-		}
-	}
-	if found == nil {
+	if len(chapters) == 0 {
 		bad(w, "地图不存在")
 		return
 	}
-	type taskCount struct{ total, done int }
-	counts := make(map[int64]taskCount)
-	rows, err := a.DB.QueryContext(r.Context(), `SELECT t.level_id, count(*),
-		sum(CASE WHEN EXISTS(SELECT 1 FROM user_task_submissions s
-			WHERE s.task_id=t.id AND s.user_id=? AND s.status='APPROVED') THEN 1 ELSE 0 END)
-		FROM tasks t JOIN levels l ON l.id=t.level_id WHERE l.map_id=? GROUP BY t.level_id`, user, id)
+	chapter := chapters[0]
+	delete(chapter, "xpEarned")
+	delete(chapter, "currentLevelId")
+	delete(chapter, "currentLevelName")
+	ok(w, chapter)
+}
+
+func (a *App) mapAtlas(w http.ResponseWriter, r *http.Request, user int64) {
+	chapters, err := a.chaptersWithLevels(r, user, 0)
 	if err != nil {
 		fail(w)
 		return
+	}
+	rows, err := a.DB.QueryContext(r.Context(), "SELECT map_id FROM atlas_visits WHERE user_id=? ORDER BY map_id", user)
+	if err != nil {
+		fail(w)
+		return
+	}
+	defer rows.Close()
+	visited := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			fail(w)
+			return
+		}
+		visited = append(visited, id)
+	}
+	if rows.Err() != nil {
+		fail(w)
+		return
+	}
+	ok(w, map[string]any{"chapters": chapters, "visitedChapterIds": visited})
+}
+
+func (a *App) visitMap(w http.ResponseWriter, r *http.Request, user int64) {
+	id, err := idParam(r)
+	if err != nil {
+		bad(w, "地图编号无效")
+		return
+	}
+	var exists bool
+	if err := a.DB.QueryRowContext(r.Context(), "SELECT EXISTS(SELECT 1 FROM maps WHERE id=?)", id).Scan(&exists); err != nil {
+		fail(w)
+		return
+	}
+	if !exists {
+		reply(w, 404, nil, "这个区域不存在")
+		return
+	}
+	_, err = a.DB.ExecContext(r.Context(), "INSERT INTO atlas_visits (user_id,map_id) VALUES(?,?) ON CONFLICT DO NOTHING", user, id)
+	if err != nil {
+		fail(w)
+		return
+	}
+	ok(w, map[string]any{"chapterId": id})
+}
+
+// A zero chapterID requests all regions in one read, without loading task bodies or tutorials.
+func (a *App) chaptersWithLevels(r *http.Request, user, chapterID int64) ([]map[string]any, error) {
+	s, err := a.snapshot(r, user)
+	if err != nil {
+		return nil, err
+	}
+	chapters, err := a.summaries(r, user, s)
+	if err != nil {
+		return nil, err
+	}
+	if chapterID != 0 {
+		all := chapters
+		chapters = nil
+		for _, chapter := range all {
+			if chapter["id"] == chapterID {
+				chapters = append(chapters, chapter)
+				break
+			}
+		}
+	}
+	if len(chapters) == 0 {
+		return chapters, nil
+	}
+	type taskCount struct{ total, done int }
+	counts := make(map[int64]taskCount)
+	query := `SELECT t.level_id, count(*),
+		sum(CASE WHEN EXISTS(SELECT 1 FROM user_task_submissions s
+			WHERE s.task_id=t.id AND s.user_id=? AND s.status='APPROVED') THEN 1 ELSE 0 END)
+		FROM tasks t JOIN levels l ON l.id=t.level_id WHERE l.map_id IS NOT NULL`
+	args := []any{user}
+	if chapterID != 0 {
+		query += " AND l.map_id=?"
+		args = append(args, chapterID)
+	}
+	rows, err := a.DB.QueryContext(r.Context(), query+" GROUP BY t.level_id", args...)
+	if err != nil {
+		return nil, err
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var levelID int64
 		var count taskCount
 		if err := rows.Scan(&levelID, &count.total, &count.done); err != nil {
-			fail(w)
-			return
+			return nil, err
 		}
 		counts[levelID] = count
 	}
 	if err := rows.Err(); err != nil {
-		fail(w)
-		return
+		return nil, err
 	}
-	levels := []any{}
+	levels := make(map[int64][]map[string]any, len(chapters))
+	for _, chapter := range chapters {
+		levels[chapter["id"].(int64)] = []map[string]any{}
+	}
 	for _, l := range s.levels {
-		if !l.MapID.Valid || l.MapID.Int64 != id {
+		list, included := levels[l.MapID.Int64]
+		if !l.MapID.Valid || !included {
 			continue
 		}
 		status := "LOCKED"
@@ -309,13 +372,16 @@ func (a *App) mapDetail(w http.ResponseWriter, r *http.Request, user int64) {
 			status = "LEARNING"
 		}
 		count := counts[l.ID]
-		levels = append(levels, map[string]any{"id": l.ID, "name": l.Name, "description": nullString(l.Description), "orderIndex": l.Order, "xpReward": l.XP, "status": status, "progress": s.progress[l.ID].Progress, "taskDone": count.done, "taskTotal": count.total, "prerequisiteNames": s.prerequisiteNames(l)})
+		levels[l.MapID.Int64] = append(list, map[string]any{
+			"id": l.ID, "name": l.Name, "description": nullString(l.Description),
+			"orderIndex": l.Order, "xpReward": l.XP, "status": status, "progress": s.progress[l.ID].Progress,
+			"taskDone": count.done, "taskTotal": count.total, "prerequisiteNames": s.prerequisiteNames(l),
+		})
 	}
-	delete(found, "xpEarned")
-	delete(found, "currentLevelId")
-	delete(found, "currentLevelName")
-	found["levels"] = levels
-	ok(w, found)
+	for _, chapter := range chapters {
+		chapter["levels"] = levels[chapter["id"].(int64)]
+	}
+	return chapters, nil
 }
 func (a *App) levelTree(w http.ResponseWriter, r *http.Request, user int64) {
 	s, err := a.snapshot(r, user)
@@ -323,17 +389,33 @@ func (a *App) levelTree(w http.ResponseWriter, r *http.Request, user int64) {
 		fail(w)
 		return
 	}
-	out := []any{}
-	for _, l := range s.levels {
-		status, progress := s.levelStatus(l)
-		tasks, err := a.loadTasks(r, l.ID)
-		if err != nil {
+	rows, err := a.DB.QueryContext(r.Context(), `SELECT level_id,id,title,sort_order FROM tasks WHERE level_id IS NOT NULL ORDER BY level_id,sort_order,id`)
+	if err != nil {
+		fail(w)
+		return
+	}
+	defer rows.Close()
+	byLevel := make(map[int64][]map[string]any)
+	for rows.Next() {
+		var lid, id int64
+		var title string
+		var order sql.NullInt64
+		if err = rows.Scan(&lid, &id, &title, &order); err != nil {
 			fail(w)
 			return
 		}
-		ts := []any{}
-		for _, t := range tasks {
-			ts = append(ts, map[string]any{"id": t.ID, "title": t.Title, "sortOrder": nullInt(t.Order)})
+		byLevel[lid] = append(byLevel[lid], map[string]any{"id": id, "title": title, "sortOrder": nullInt(order)})
+	}
+	if rows.Err() != nil {
+		fail(w)
+		return
+	}
+	out := []any{}
+	for _, l := range s.levels {
+		status, progress := s.levelStatus(l)
+		ts := byLevel[l.ID]
+		if ts == nil {
+			ts = []map[string]any{}
 		}
 		out = append(out, map[string]any{"id": l.ID, "name": l.Name, "mapId": nullInt(l.MapID), "orderIndex": l.Order, "tier": l.Tier, "category": nullString(l.Category), "status": status, "progress": progress, "tasks": ts, "prerequisiteNames": s.prerequisiteNames(l), "prerequisiteIds": l.Prereqs})
 	}
@@ -378,47 +460,19 @@ func (a *App) levelDetail(w http.ResponseWriter, r *http.Request, user int64) {
 			return
 		}
 	}
-	rows, err := a.DB.QueryContext(r.Context(), `SELECT id,title,content,sort_order FROM tutorials WHERE level_id=? ORDER BY sort_order,id`, id)
+	tutorials, err := a.levelTutorials(r.Context(), id)
 	if err != nil {
 		fail(w)
 		return
 	}
-	tutorials := []any{}
-	for rows.Next() {
-		var tid int64
-		var title string
-		var content sql.NullString
-		var order int
-		if err = rows.Scan(&tid, &title, &content, &order); err != nil {
-			rows.Close()
-			fail(w)
-			return
-		}
-		tutorials = append(tutorials, map[string]any{"id": tid, "title": title, "content": nullString(content), "sortOrder": order})
-	}
-	if rows.Err() != nil {
-		rows.Close()
-		fail(w)
-		return
-	}
-	rows.Close()
-	tasks, err := a.loadTasks(r, id)
+	tasks, err := a.learningTasks(r.Context(), user, []int64{id}, false)
 	if err != nil {
 		fail(w)
 		return
 	}
 	ts := []any{}
 	for _, t := range tasks {
-		var subStatus string
-		var feedback sql.NullString
-		err = a.DB.QueryRowContext(r.Context(), `SELECT COALESCE(status,'NONE'),ai_feedback FROM user_task_submissions WHERE user_id=? AND task_id=? ORDER BY submitted_at DESC,id DESC LIMIT 1`, user, t.ID).Scan(&subStatus, &feedback)
-		if err == sql.ErrNoRows {
-			subStatus = "NONE"
-		} else if err != nil {
-			fail(w)
-			return
-		}
-		ts = append(ts, map[string]any{"id": t.ID, "title": t.Title, "description": nullString(t.Description), "acceptanceCriteria": criteria(t), "xpReward": t.XP, "sortOrder": nullInt(t.Order), "submissionStatus": subStatus, "aiFeedback": nullString(feedback), "aiReviewEnabled": t.AI != 0})
+		ts = append(ts, t.response())
 	}
 	ok(w, map[string]any{"id": l.ID, "name": l.Name, "tier": l.Tier, "category": nullString(l.Category), "mapId": nullInt(l.MapID), "mapName": nullString(mapName), "prerequisiteNames": s.prerequisiteNames(l), "tutorials": tutorials, "tasks": ts, "userStatus": map[string]any{"status": status, "progress": pct}})
 }

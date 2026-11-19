@@ -1,18 +1,16 @@
 package api
 
 import (
-	"crypto/rand"
-	"crypto/subtle"
 	"crypto/tls"
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"math/big"
+	"mime"
+	"mime/quotedprintable"
 	"net"
 	"net/http"
 	"net/mail"
 	"net/smtp"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -20,13 +18,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
-
-type resetEntry struct {
-	userID   int64
-	code     string
-	expires  time.Time
-	attempts int
-}
 
 func (a *App) register(w http.ResponseWriter, r *http.Request) {
 	if len(a.key) < 32 {
@@ -66,14 +57,15 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	var mentor *int64
+	var mentorVersion int64
 	if x.InviteToken != "" {
-		c := jwt.MapClaims{}
+		c := new(mentorInviteClaims)
 		token, err := jwt.ParseWithClaims(x.InviteToken, c, func(t *jwt.Token) (any, error) { return a.key, nil }, jwt.WithValidMethods([]string{"HS256", "HS384", "HS512"}), jwt.WithExpirationRequired())
 		if err != nil || !token.Valid {
 			bad(w, "邀请链接无效或已过期")
 			return
 		}
-		if _, isLogin := c["userId"]; isLogin {
+		if c.LoginUserID != nil {
 			bad(w, "邀请链接无效")
 			return
 		}
@@ -84,6 +76,7 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		mentor = &id
+		mentorVersion = c.Version
 		x.Role = "INTERNAL"
 	} else if x.MentorID != nil {
 		bad(w, "请使用有效的邀请链接")
@@ -107,7 +100,7 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 	var count int
-	if err = tx.QueryRow(`SELECT count(*) FROM users WHERE username=? OR (?<>'' AND email=?)`, x.Username, x.Email, x.Email).Scan(&count); err != nil {
+	if err = tx.QueryRow(`SELECT count(*) FROM users WHERE username=? OR (?<>'' AND lower(trim(email))=lower(?))`, x.Username, x.Email, x.Email).Scan(&count); err != nil {
 		fail(w)
 		return
 	}
@@ -124,8 +117,8 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if mentor != nil {
-		if err = tx.QueryRow(`SELECT count(*) FROM users WHERE id=? AND role IN ('INTERNAL','TEACHER','SUPERADMIN')`, *mentor).Scan(&count); err != nil || count == 0 {
-			bad(w, "邀请的师父不存在")
+		if err = tx.QueryRow(`SELECT count(*) FROM users u LEFT JOIN login_versions v ON v.user_id=u.id WHERE u.id=? AND COALESCE(v.version,0)=? AND u.role IN ('INTERNAL','TEACHER','SUPERADMIN')`, *mentor, mentorVersion).Scan(&count); err != nil || count == 0 {
+			bad(w, "邀请链接已失效，请联系师父重新获取")
 			return
 		}
 	}
@@ -156,11 +149,16 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	var version int64
+	if err = tx.QueryRowContext(r.Context(), "SELECT version FROM login_versions WHERE user_id=?", id).Scan(&version); err != nil {
+		fail(w)
+		return
+	}
 	if err = tx.Commit(); err != nil {
 		fail(w)
 		return
 	}
-	token, err := a.loginToken(id, x.Username, x.Role)
+	token, err := a.loginToken(id, x.Username, x.Role, version)
 	if err != nil {
 		fail(w)
 		return
@@ -182,6 +180,7 @@ func (a *App) updateProfile(w http.ResponseWriter, r *http.Request, id int64) {
 		bad(w, "资料无效")
 		return
 	}
+	x.Email = strings.TrimSpace(x.Email)
 	if x.Email != "" {
 		if addr, err := mail.ParseAddress(x.Email); err != nil || addr.Address != x.Email {
 			bad(w, "邮箱无效")
@@ -195,111 +194,6 @@ func (a *App) updateProfile(w http.ResponseWriter, r *http.Request, id int64) {
 	}
 	a.profile(w, r, id)
 }
-func (a *App) forgotPassword(w http.ResponseWriter, r *http.Request) {
-	if !a.allowAttempt("reset-ip:"+clientIP(r), 100) {
-		reply(w, 429, nil, "请求过于频繁，请稍后再试")
-		return
-	}
-	var x struct {
-		Email string `json:"email"`
-	}
-	r.Body = http.MaxBytesReader(w, r.Body, 4096)
-	if json.NewDecoder(r.Body).Decode(&x) != nil || len(x.Email) > 254 {
-		bad(w, "邮箱无效")
-		return
-	}
-	address, err := mail.ParseAddress(x.Email)
-	if err != nil || address.Address != x.Email {
-		bad(w, "邮箱无效")
-		return
-	}
-	var id int64
-	err = a.DB.QueryRowContext(r.Context(), `SELECT id FROM users WHERE email=?`, x.Email).Scan(&id)
-	if err == sql.ErrNoRows {
-		ok(w, nil)
-		return
-	}
-	if err != nil {
-		fail(w)
-		return
-	}
-	a.sendPasswordReset(w, id, x.Email)
-}
-
-func (a *App) adminPasswordReset(w http.ResponseWriter, r *http.Request, actor int64) {
-	if !a.allowAttempt("admin-reset:"+strconv.FormatInt(actor, 10), 30) {
-		reply(w, 429, nil, "请求过于频繁，请稍后再试")
-		return
-	}
-	id, err := idParam(r)
-	if err != nil {
-		bad(w, "用户无效")
-		return
-	}
-	var role string
-	var email sql.NullString
-	err = a.DB.QueryRowContext(r.Context(), `SELECT COALESCE(role,''),email FROM users WHERE id=?`, id).Scan(&role, &email)
-	if err == sql.ErrNoRows {
-		reply(w, 404, nil, "用户不存在")
-		return
-	}
-	if err != nil {
-		fail(w)
-		return
-	}
-	if role == "SUPERADMIN" {
-		reply(w, 403, nil, "超级管理员请使用忘记密码流程")
-		return
-	}
-	address, err := mail.ParseAddress(email.String)
-	if err != nil || address.Address != email.String {
-		bad(w, "用户尚未绑定有效的邮箱")
-		return
-	}
-	a.sendPasswordReset(w, id, email.String)
-}
-
-func (a *App) sendPasswordReset(w http.ResponseWriter, id int64, email string) {
-	host, user, pass := os.Getenv("SMTP_HOST"), os.Getenv("SMTP_USERNAME"), os.Getenv("SMTP_PASSWORD")
-	if host == "" || user == "" || pass == "" {
-		reply(w, 503, nil, "邮件服务未配置")
-		return
-	}
-	a.resetMu.Lock()
-	prev, exists := a.resets[email]
-	if exists && prev.userID == id && time.Until(prev.expires) > 4*time.Minute {
-		a.resetMu.Unlock()
-		reply(w, 429, nil, "请求过于频繁")
-		return
-	}
-	num, err := rand.Int(rand.Reader, big.NewInt(1000000))
-	if err != nil {
-		a.resetMu.Unlock()
-		fail(w)
-		return
-	}
-	code := fmt.Sprintf("%06d", num.Int64())
-	entry := resetEntry{userID: id, code: code, expires: time.Now().Add(5 * time.Minute)}
-	a.resets[email] = entry
-	a.resetMu.Unlock()
-	port := os.Getenv("SMTP_PORT")
-	if port == "" {
-		port = "587"
-	}
-	err = sendResetMail(host, port, user, pass, email, code, &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}, port == "465")
-	if err != nil {
-		a.resetMu.Lock()
-		current := a.resets[email]
-		if current.userID == entry.userID && current.expires == entry.expires {
-			delete(a.resets, email)
-		}
-		a.resetMu.Unlock()
-		reply(w, 502, nil, "邮件发送失败")
-		return
-	}
-	ok(w, nil)
-}
-
 func sendResetMail(host, port, user, pass, email, code string, tlsConfig *tls.Config, implicitTLS bool) error {
 	addr := net.JoinHostPort(host, port)
 	conn, err := net.DialTimeout("tcp", addr, 10*time.Second)
@@ -339,8 +233,17 @@ func sendResetMail(host, port, user, pass, email, code string, tlsConfig *tls.Co
 	if err != nil {
 		return err
 	}
-	_, err = fmt.Fprintf(wr, "From: %s\r\nTo: %s\r\nSubject: Skilltree password reset\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nCode: %s (valid for 5 minutes)\r\n", user, email, code)
+	_, err = fmt.Fprintf(wr, "From: %s\r\nTo: %s\r\nDate: %s\r\nSubject: %s\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n",
+		user, email, time.Now().Format(time.RFC1123Z), mime.QEncoding.Encode("UTF-8", "技能树学习系统 · 找回密码验证码"))
 	if err != nil {
+		return err
+	}
+	body := quotedprintable.NewWriter(wr)
+	_, err = fmt.Fprintf(body, "你正在找回技能树学习系统的登录密码。你的验证码是\r\n\r\n%s\r\n\r\n验证码 5 分钟有效。若非本人申请，可忽略此邮件。\r\n", code)
+	if err != nil {
+		return err
+	}
+	if err = body.Close(); err != nil {
 		return err
 	}
 	if err = wr.Close(); err != nil {
@@ -348,53 +251,4 @@ func sendResetMail(host, port, user, pass, email, code string, tlsConfig *tls.Co
 	}
 	_ = c.Quit()
 	return nil
-}
-func (a *App) resetPassword(w http.ResponseWriter, r *http.Request) {
-	if !a.allowAttempt("reset-confirm:"+clientIP(r), 100) {
-		reply(w, 429, nil, "请求过于频繁，请稍后再试")
-		return
-	}
-	var x struct {
-		Email    string `json:"email"`
-		Code     string `json:"code"`
-		Password string `json:"newPassword"`
-	}
-	r.Body = http.MaxBytesReader(w, r.Body, 4096)
-	if json.NewDecoder(r.Body).Decode(&x) != nil || len(x.Password) < 6 || len(x.Password) > 72 {
-		bad(w, "请求无效")
-		return
-	}
-	a.resetMu.Lock()
-	entry, okCode := a.resets[x.Email]
-	if !okCode || time.Now().After(entry.expires) || entry.attempts >= 5 {
-		delete(a.resets, x.Email)
-		a.resetMu.Unlock()
-		bad(w, "验证码无效或已过期")
-		return
-	}
-	if subtle.ConstantTimeCompare([]byte(entry.code), []byte(x.Code)) != 1 {
-		entry.attempts++
-		a.resets[x.Email] = entry
-		a.resetMu.Unlock()
-		bad(w, "验证码错误")
-		return
-	}
-	delete(a.resets, x.Email)
-	a.resetMu.Unlock()
-	hash, err := bcrypt.GenerateFromPassword([]byte(x.Password), bcrypt.DefaultCost)
-	if err != nil {
-		fail(w)
-		return
-	}
-	res, err := a.DB.ExecContext(r.Context(), `UPDATE users SET password=? WHERE id=? AND email=?`, string(hash), entry.userID, x.Email)
-	if err != nil {
-		fail(w)
-		return
-	}
-	n, _ := res.RowsAffected()
-	if n == 0 {
-		bad(w, "用户不存在")
-		return
-	}
-	ok(w, nil)
 }

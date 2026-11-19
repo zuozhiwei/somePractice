@@ -17,9 +17,9 @@
     <div v-else-if="tasks.length" class="mentor-tasks">
       <div v-for="t in tasks" :key="t.id" class="mentor-task" :class="String(t.submissionStatus || '').toLowerCase()">
         <span class="mt-title">{{ t.title }}</span>
-        <span class="mt-status">{{ statusText(t.submissionStatus) }}</span>
+        <span class="mt-status">{{ submissionStatusText(t.submissionStatus) }}</span>
         <el-button size="small" type="primary" :disabled="t.submissionStatus === 'APPROVED' || locked"
-                   @click="submitTask(t)">提交</el-button>
+                   @click="submitTask(t)">{{ submissionActionText(t.submissionStatus) }}</el-button>
       </div>
     </div>
 
@@ -33,6 +33,7 @@
 </template>
 
 <script setup>
+import { submissionStatusText, submissionActionText } from '../submissionStatus'
 import { ref, nextTick } from 'vue'
 import { skillsApi } from '../api/skills'
 import { mentorLines } from '../world/data'
@@ -64,9 +65,6 @@ function mentorsSprites() {
   return spriteCache
 }
 
-function statusText(s) {
-  return { NONE: '未提交', PENDING: '审核中', REJECTED: '未通过', AI_REVIEWED: 'AI 复核', APPROVED: '已通过' }[s] || '未提交'
-}
 
 function onVisible(v) {
   visible.value = v
@@ -110,7 +108,7 @@ function buildLines(ts) {
 async function loadDetail() {
   if (levelId.value == null) return
   try {
-    const res = await skillsApi.levelDetail(levelId.value)
+    const res = await skillsApi.getDetail(levelId.value)
     const d = res.data?.data || {}
     tasks.value = d.tasks || []
     locked.value = false
@@ -126,7 +124,7 @@ async function loadDetail() {
 async function refresh() {
   try {
     if (levelId.value == null) return
-    const res = await skillsApi.levelDetail(levelId.value)
+    const res = await skillsApi.getDetail(levelId.value)
     const d = res.data?.data || {}
     tasks.value = d.tasks || []
     locked.value = false

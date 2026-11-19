@@ -642,6 +642,7 @@ func (a *App) adminDeleteUser(w http.ResponseWriter, r *http.Request, actor int6
 		fail(w)
 		return
 	}
+	a.closeUserChats(id)
 	ok(w, nil)
 }
 

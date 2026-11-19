@@ -102,7 +102,7 @@ func TestThirtyWebSocketRecipients(t *testing.T) {
 	defer cancel()
 	conns := make([]*websocket.Conn, 0, 30)
 	for id := 2; id <= 31; id++ {
-		token, err := app.loginToken(int64(id), fmt.Sprintf("student%d", id), "INTERNAL")
+		token, err := app.loginToken(int64(id), fmt.Sprintf("student%d", id), "INTERNAL", testSessionVersion(t, db, int64(id)))
 		if err != nil {
 			t.Fatal(err)
 		}

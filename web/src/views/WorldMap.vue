@@ -1,193 +1,202 @@
 <template>
-  <section class="expedition" aria-label="学习冒险地图">
-    <div v-if="loading || error" class="world-message" :role="error ? 'alert' : 'status'">
-      <el-icon><Compass /></el-icon><p>{{ error ? '暂时无法读取学习进度' : '正在展开你的航海图…' }}</p>
-      <button v-if="error" type="button" class="quiet" @click="load">重新加载</button>
-    </div>
-    <div v-else-if="!chapters.length" class="world-message"><el-icon><MapLocation /></el-icon><p>还没有发布学习章节。</p></div>
-    <template v-else>
-      <div class="atlas-card">
-        <header class="atlas-head">
-          <div class="chapter-title">
-            <div class="chapter-meta"><span class="chapter-mark"></span>第 {{ chapterIndex + 1 }} 章<span class="meta-line"></span>{{ chapterStatus }}</div>
-            <h2>{{ chapter.name }}</h2>
-          </div>
-          <div class="atlas-controls">
-            <label class="select-wrap"><el-icon><MapLocation /></el-icon><span>切换章节</span>
-              <select :value="chapter.id" aria-label="切换章节" @change="openChapter(Number($event.target.value))">
-                <option v-for="(item,index) in chapters" :key="item.id" :value="item.id">{{ index + 1 }} · {{ item.name }}{{ item.status === 'LOCKED' ? '（未解锁）' : '' }}</option>
-              </select><el-icon class="caret"><ArrowDown /></el-icon>
-            </label>
-            <button type="button" class="quiet" @click="missionOpen = true"><el-icon><Tickets /></el-icon>推荐委托</button>
-          </div>
-        </header>
-
-        <div v-if="chapterBusy || chapterError" class="world-message chapter-message" :role="chapterError ? 'alert' : 'status'">
-          <p>{{ chapterError ? '这个章节暂时无法打开' : '正在读取关卡…' }}</p>
-          <button v-if="chapterError" class="quiet" @click="openChapter(chapter.id)">重试</button>
-        </div>
-        <template v-else>
-          <ExpeditionScene :key="`${chapter.id}-${page}`" :stops="stops" :starting-id="startingId" :selected-id="selectedId"
-                           :theme-index="chapterIndex" :seed="chapter.id * 37 + page" @select="select" @enter="enter" @mission="missionOpen = true" />
-          <div class="atlas-foot">
-            <div class="chapter-progress"><span>章节进度</span><span class="track"><i :style="{ width: percent + '%' }"></i></span><b>{{ chapter.levelsCompleted }} / {{ chapter.totalLevels }} 关</b></div>
-            <nav v-if="pageCount > 1" class="page-controls" aria-label="切换地图路段">
-              <button type="button" :disabled="page === 0" aria-label="上一段" @click="changePage(page-1)"><el-icon><ArrowLeft /></el-icon></button>
-              <span>路段 {{ page+1 }} / {{ pageCount }}</span>
-              <button type="button" :disabled="page + 1 === pageCount" aria-label="下一段" @click="changePage(page+1)"><el-icon><ArrowRight /></el-icon></button>
-            </nav>
-            <span class="map-hint">点小路或用方向键行走，靠近据点按 E 进入</span>
-            <span class="touch-hint">轻点小路行走，点据点查看关卡</span>
-          </div>
-        </template>
+  <section class="expedition" aria-labelledby="atlas-title">
+    <header class="atlas-head">
+      <div>
+        <h1 id="atlas-title">江湖地图</h1>
+        <p v-if="chapters.length">{{ chapters.length }} 个章节区域 <span>·</span> {{ cleared }} / {{ levelCount }} 关已通关</p>
       </div>
+      <div class="atlas-actions">
+        <button type="button" class="mission-link" @click="journalOpen = true"><el-icon><Notebook /></el-icon>探索手记 <small>{{ visited.size }}/{{ chapters.length }}</small></button>
+        <button type="button" class="mission-link" @click="showMission(null)"><el-icon><Tickets /></el-icon>推荐任务</button>
+      </div>
+    </header>
 
-      <article v-if="!chapterBusy && !chapterError && selected" class="quest-card" aria-live="polite">
-        <div class="quest-icon" :class="selected.status.toLowerCase()"><el-icon><component :is="selected.status === 'LOCKED' ? Lock : selected.status === 'COMPLETED' ? CircleCheck : Flag" /></el-icon></div>
-        <div class="quest-main">
-          <div class="quest-meta">第 {{ selected.number }} 关 <span></span> {{ STATUS[selected.status] }}</div>
-          <h3>{{ selected.name }}</h3>
-          <p v-if="selected.status === 'LOCKED'">{{ unlockHint }}</p>
-          <p v-else-if="selected.description">{{ selected.description }}</p>
-          <div class="quest-stats"><span><el-icon><DocumentChecked /></el-icon>{{ selected.taskDone }} / {{ selected.taskTotal }} 项任务</span><span><el-icon><Medal /></el-icon>{{ selected.xpReward }} XP</span></div>
+    <div v-if="error || loading || !chapters.length" class="world-message" :role="error ? 'alert' : 'status'">
+      <el-icon><Compass /></el-icon>
+      <p>{{ error ? '世界地图加载失败' : loading ? '正在展开世界地图…' : '还没有发布学习章节。' }}</p>
+      <button v-if="error" type="button" class="mission-link" @click="load">重新加载</button>
+    </div>
+    <template v-else>
+      <ExpeditionScene ref="scene" :atlas="atlas" :places="places" :selected-id="selectedId" :restore-focus="restoreFocus"
+                       @select="select" @enter="openPlace" @arrive="visitCamp" @mission="showMission" />
+      <article v-if="selected" class="place-card" aria-live="polite">
+        <div class="place-icon" :class="selected.status?.toLowerCase()">
+          <el-icon><component :is="selected.level ? (selected.status === 'LOCKED' ? Lock : selected.status === 'COMPLETED' ? CircleCheck : Flag) : MapLocation" /></el-icon>
         </div>
-        <button class="quest-action" type="button" :disabled="selected.status === 'LOCKED'" @click="enter(selected)">
-          {{ selected.status === 'LOCKED' ? '尚未解锁' : selected.status === 'COMPLETED' ? '回顾关卡' : '进入关卡' }}
-          <el-icon><component :is="selected.status === 'LOCKED' ? Lock : Right" /></el-icon>
+        <div class="place-text">
+          <p class="place-meta">第 {{ selected.chapterIndex + 1 }} 章 · {{ selected.level ? selected.chapter.name + ' / 第 ' + selected.number + ' 关' : '章节营地' }}</p>
+          <h2>{{ selected.name }}</h2>
+          <p v-if="selected.level && selected.status === 'LOCKED'" class="description">{{ unlockHint }}</p>
+          <p v-else-if="!selected.level" class="description">{{ selected.guide.role }} · {{ selected.guide.name }}：「{{ selected.guide.greeting }}」</p>
+          <p v-else-if="selected.description" class="description">{{ selected.description }}</p>
+          <div class="place-stats">
+            <span>{{ selected.statusText }}</span>
+            <template v-if="selected.level">
+              <span><el-icon><DocumentChecked /></el-icon>{{ selected.level.taskDone }} / {{ selected.level.taskTotal }} 项任务</span>
+              <span><el-icon><Medal /></el-icon>{{ selected.level.xpReward }} XP</span>
+            </template>
+            <span v-else>{{ selected.chapter.levelsCompleted }} / {{ selected.chapter.totalLevels }} 关已通关</span>
+          </div>
+        </div>
+        <button type="button" class="enter" :disabled="selected.level && selected.status === 'LOCKED'" @click="openPlace(selectedId)">
+          {{ selected.level ? (selected.status === 'LOCKED' ? '关卡未解锁' : selected.status === 'COMPLETED' ? '回顾关卡' : '进入关卡') : '查看本章关卡' }}
+          <el-icon><component :is="selected.level && selected.status === 'LOCKED' ? Lock : Right" /></el-icon>
         </button>
       </article>
-      <div v-else-if="!chapterBusy && !chapterError" class="world-message"><p>这一章还没有发布关卡。</p></div>
     </template>
-    <MissionDialog v-if="missionOpen" v-model="missionOpen" @submitted="refreshAfterSubmission" />
+    <el-dialog v-model="journalOpen" title="探索手记" width="min(94vw, 520px)">
+      <p class="journal-summary">已探访 {{ visited.size }} / {{ chapters.length }} 处营地</p>
+      <div class="journal-list">
+        <button v-for="(chapter,index) in chapters" :key="chapter.id" type="button" @click="journalTravel(chapter.id)">
+          <span><strong>{{ chapter.name }}</strong><small>{{ visited.has(chapter.id) ? guideFor(index).role + ' · ' + guideFor(index).name : '尚未拜访引路人' }}</small></span>
+          <span>{{ visited.has(chapter.id) ? '重访' : '前往' }} →</span>
+        </button>
+      </div>
+    </el-dialog>
+    <MissionDialog v-if="missionOpen" v-model="missionOpen" :chapter-id="missionChapter" @submitted="refresh" />
   </section>
 </template>
 
 <script setup>
-import { ref, computed, defineAsyncComponent, onMounted, onBeforeUnmount } from 'vue'
-import { useRouter } from 'vue-router'
-import { MapLocation, Tickets, ArrowDown, ArrowLeft, ArrowRight, Lock, Flag, CircleCheck, Medal, Right, Compass, DocumentChecked } from '@element-plus/icons-vue'
-import { useMapStore } from '../store/map'
+import { computed, ref, shallowRef, defineAsyncComponent, onBeforeUnmount, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { Tickets, Notebook, Compass, MapLocation, Lock, CircleCheck, Flag, Medal, DocumentChecked, Right } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import { mapsApi } from '../api/maps'
+import { useMapStore } from '../store/map'
 import ExpeditionScene from '../world/ExpeditionScene.vue'
-import { chapterStops, currentLevel, STOPS_PER_PAGE, STATUS } from '../world/expedition'
+import { buildAtlas } from '../world/worldAtlas'
+import { guideFor } from '../world/campGuides'
 
 const MissionDialog = defineAsyncComponent(() => import('../world/MissionDialog.vue'))
-const mapStore = useMapStore(), router = useRouter()
-const loading = ref(true), error = ref(false), chapterBusy = ref(false), chapterError = ref(false), missionOpen = ref(false)
-const progress = ref(null), chapterId = ref(null), detail = ref(null), selectedId = ref(null), startingId = ref(null), page = ref(0)
-let chapterRequest = 0, progressRequest = 0
-const chapters = computed(() => progress.value?.maps || [])
-const chapterIndex = computed(() => chapters.value.findIndex(item => item.id === chapterId.value))
-const chapter = computed(() => detail.value || chapters.value[chapterIndex.value])
-const chapterStatus = computed(() => ({COMPLETED:'已通关', IN_PROGRESS:'探索中', LOCKED:'未解锁'})[chapter.value?.status])
-const levels = computed(() => detail.value?.levels || [])
-const pageCount = computed(() => Math.ceil(levels.value.length / STOPS_PER_PAGE))
-const stops = computed(() => chapterStops(levels.value, page.value, chapter.value?.status))
-const selected = computed(() => stops.value.find(stop => stop.id === selectedId.value))
-const unlockHint = computed(() => {
-  const names = selected.value?.prerequisiteNames || []
-  return names.length ? `完成前置关卡「${names.join('」、「')}」后解锁。` : '完成前置关卡后，可以来这里挑战。'
+const router = useRouter()
+const route = useRoute()
+const mapStore = useMapStore()
+const loading = ref(true), error = ref(false), missionOpen = ref(false)
+const chapters = shallowRef([]), atlas = shallowRef(null), selectedId = ref(null)
+const restoreFocus = ref(false)
+const scene = ref(null), journalOpen = ref(false), missionChapter = ref(null)
+const visited = shallowRef(new Set()), pendingVisits = new Set()
+const cleared = computed(() => chapters.value.reduce((sum, chapter) => sum + chapter.levelsCompleted, 0))
+const levelCount = computed(() => chapters.value.reduce((sum, chapter) => sum + chapter.totalLevels, 0))
+const levelStatus = { LOCKED: '未解锁', LEARNING: '可挑战', COMPLETED: '已通关' }
+const chapterStatus = { LOCKED: '可探索', IN_PROGRESS: '学习中', COMPLETED: '已通关' }
+const places = computed(() => {
+  const result = new Map()
+  chapters.value.forEach((chapter, chapterIndex) => {
+    result.set('hub:' + chapter.id, { chapter, chapterIndex, guide:guideFor(chapterIndex), name: chapter.name, description: chapter.description, status: chapter.status, statusText: chapterStatus[chapter.status] })
+    chapter.levels.forEach((level, i) => {
+      result.set('level:' + level.id, {
+        chapter, chapterIndex, level, number: i + 1, name: level.name,
+        description: level.description, status: level.status, statusText: levelStatus[level.status]
+      })
+    })
+  })
+  return result
 })
-const percent = computed(() => chapter.value?.totalLevels ? Math.min(100, 100 * chapter.value.levelsCompleted / chapter.value.totalLevels) : 0)
+const selected = computed(() => places.value.get(selectedId.value))
+const unlockHint = computed(() => {
+  const names = selected.value?.level?.prerequisiteNames || []
+  return names.length ? '完成前置关卡「' + names.join('」、「') + '」后解锁。' : '完成前置关卡后解锁。'
+})
 
-function select(stop) { selectedId.value = stop.id }
-function enter(stop) {
-  if (!stop || stop.status === 'LOCKED') return
-  router.push({ path: `/level/${stop.id}`, query: { n: stop.orderIndex } })
-}
-function changePage(index, preferred) {
-  page.value = index
-  const choice = stops.value.find(stop => stop.id === preferred) || currentLevel(stops.value, chapter.value.status)
-  selectedId.value = choice?.id ?? null
-  startingId.value = selectedId.value
-}
-async function openChapter(id, preferred) {
-  const request = ++chapterRequest
-  chapterId.value = id
-  chapterBusy.value = true
-  chapterError.value = false
-  detail.value = null
-  try {
-    const response = await mapsApi.detail(id)
-    if (request !== chapterRequest) return
-    detail.value = response.data.data
-    const choice = levels.value.find(level => level.id === preferred) || currentLevel(levels.value, chapter.value.status)
-    const index = Math.max(0, levels.value.indexOf(choice))
-    changePage(Math.floor(index / STOPS_PER_PAGE), choice?.id)
-  } catch {
-    if (request === chapterRequest) chapterError.value = true
-  } finally { if (request === chapterRequest) chapterBusy.value = false }
-}
+let generation = 0
 async function load() {
-  const request = ++progressRequest
-  ++chapterRequest
-  loading.value = true
+  const current = ++generation
+  loading.value = !atlas.value
   error.value = false
-  const previousChapter = chapterId.value, previousLevel = selectedId.value
   try {
-    const result = await mapStore.fetchProgress(true)
-    if (request !== progressRequest) return
-    if (!Array.isArray(result?.maps)) throw new Error('Missing chapter list')
-    progress.value = result
-    const target = chapters.value.find(item => item.id === previousChapter) ||
-      chapters.value.find(item => item.id === result.currentMapId && item.status !== 'LOCKED') ||
-      chapters.value.find(item => item.status === 'IN_PROGRESS') || chapters.value[0]
-    if (target) {
-      chapterId.value = target.id
-      loading.value = false
-      await openChapter(target.id, previousLevel)
+    const { data } = await mapsApi.atlas()
+    if (current !== generation) return
+    if (!Array.isArray(data.data?.chapters)) throw new Error('Missing chapters')
+    chapters.value = data.data.chapters
+    visited.value = new Set([...visited.value, ...(data.data.visitedChapterIds || [])].filter(id => chapters.value.some(chapter => chapter.id === id)))
+    atlas.value = buildAtlas(chapters.value)
+    if (!places.value.has(selectedId.value)) {
+      const nodes = atlas.value.nodes.filter(node => node.kind === 'level')
+      const first = nodes.find(node => places.value.get(node.id).status === 'LEARNING') || nodes[0] || atlas.value.nodes[0]
+      restoreFocus.value = places.value.has(route.query.place)
+      selectedId.value = restoreFocus.value ? route.query.place : first?.id ?? null
     }
-  } catch { if (request === progressRequest) error.value = true }
-  finally { if (request === progressRequest) loading.value = false }
+  } catch {
+    if (current === generation) error.value = true
+  } finally {
+    if (current === generation) loading.value = false
+  }
 }
-function refreshAfterSubmission() { load() }
+function select(id) { selectedId.value = id }
+function showMission(chapterId) {
+  missionChapter.value = chapterId
+  missionOpen.value = true
+}
+async function visitCamp(id) {
+  if (visited.value.has(id) || pendingVisits.has(id)) return
+  pendingVisits.add(id)
+  try {
+    await mapsApi.visit(id)
+    visited.value = new Set([...visited.value,id])
+  } catch { ElMessage.warning('探访记录保存失败，到营地再次拜访即可重试。') }
+  finally { pendingVisits.delete(id) }
+}
+function journalTravel(id) {
+  journalOpen.value = false
+  scene.value?.visitCampById(id)
+}
+async function openPlace(id) {
+  const place = places.value.get(id)
+  if (!place || (place.level && place.status === 'LOCKED')) return
+  await router.replace({ path:route.path, query:{ ...route.query, place:id }, hash:route.hash })
+  if (!place.level) {
+    router.push('/map/' + place.chapter.id)
+  } else {
+    router.push({ path: '/level/' + place.level.id, query: { n: place.level.orderIndex } })
+  }
+}
+function refresh() {
+  mapStore.refresh()
+  load()
+}
 onMounted(load)
-onBeforeUnmount(() => { chapterRequest++; progressRequest++ })
+onBeforeUnmount(() => { generation++ })
 </script>
 
 <style scoped>
-.expedition { width:100%; min-width:0; display:grid; gap:16px; color:var(--color-text,#193a31); }
-.atlas-card,.quest-card,.world-message { background:var(--color-surface,#fffef9); border:1px solid var(--color-border,#d8dfd2); border-radius:16px; }
-.atlas-card { overflow:hidden; box-shadow:0 5px 22px #304c3720; }
-.atlas-head,.atlas-foot { display:flex; align-items:center; justify-content:space-between; gap:16px; }
-.atlas-head { padding:18px 22px 17px; }
-.chapter-title { min-width:0; }
-.chapter-meta,.quest-meta { display:flex; align-items:center; gap:8px; color:#627565; font-weight:650; font-size:11px; letter-spacing:.06em; }
-.chapter-mark { width:7px;height:7px;transform:rotate(45deg);background:#b47e38; }
-.meta-line { width:16px;height:1px;background:#aebca7; }
-.chapter-title h2 { font-size:clamp(21px,2vw,31px); font-weight:750; color:#203f34; line-height:1.3; margin:5px 0 0; overflow-wrap:anywhere; }
-.atlas-controls { display:flex; gap:8px; flex-shrink:0; }
-.quiet,.select-wrap { display:inline-flex; align-items:center; justify-content:center; gap:7px; border:1px solid #d6ddcf; background:#f6f7ed; color:#375948; border-radius:8px; padding:8px 11px; font-size:12px; font-weight:650; cursor:pointer; }
-.quiet:hover,.select-wrap:hover { background:#edf1e3; }
-.select-wrap { position:relative; }
-.select-wrap select { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; }
-.select-wrap:focus-within,.quest-action:focus-visible,.quiet:focus-visible { outline:2px solid #376952; outline-offset:2px; }
-.atlas-controls .el-icon {font-size:15px;} .atlas-controls .caret {font-size:11px;}
-.atlas-foot { padding:12px 20px; border-top:1px solid #bdccba; flex-wrap:wrap; }
-.chapter-progress,.page-controls { display:flex; align-items:center; gap:10px; font-size:12px; color:#5d7063; }
-.chapter-progress b {font-variant-numeric:tabular-nums;color:#375643;}
-.track { width:clamp(56px,9vw,124px);height:5px;border-radius:4px;overflow:hidden;background:#dce3d5; }
-.track i {display:block;height:100%;background:#49755b;}
-.map-hint,.touch-hint {font-size:12px;color:#617365;}
-.touch-hint {display:none;}
-@media(pointer:coarse),(max-width:620px) { .map-hint {display:none;} .touch-hint {display:inline;} }
-.page-controls button { display:grid;place-items:center;border:1px solid #d1d9ca; border-radius:5px;padding:5px; background:#fffef9; color:#365444;cursor:pointer; }
-.page-controls button:disabled { opacity:.4;cursor:default; }
-.quest-card { display:flex; align-items:center; gap:16px; padding:18px 22px; }
-.quest-icon { display:grid; place-items:center; width:50px; height:54px; flex-shrink:0; font-size:24px; color:#93682a; border:1px solid #e5d8b5; background:#f7efd9; border-radius:13px; }
-.quest-icon.locked {color:#61746b; background:#edf0e8; border-color:#d8dfd4;}
-.quest-icon.completed {color:#346851;background:#e7efe0; border-color:#cdddc3;}
-.quest-main {flex:1;min-width:0;}
-.quest-meta { color:#7c6943; }
-.quest-meta span {height:3px;width:3px;border-radius:50%;background:#ad9d78;}
-.quest-main h3 { font-size:clamp(17px,1.6vw,22px); margin:4px 0; }
-.quest-main p { font-size:13px;color:#586b5d;line-height:1.65;margin:3px 0; overflow-wrap:anywhere; }
-.quest-stats,.quest-stats span { display:flex;align-items:center;gap:5px; }
-.quest-stats {margin-top:7px;gap:16px;font-size:12px;color:#69785d;}
-.quest-action { display:inline-flex;align-items:center;justify-content:center;gap:12px;border:0;border-radius:9px;background:#235c47;color:#fffdf1;font-weight:700;padding:12px 17px;cursor:pointer; }
-.quest-action:hover {background:#164934;}.quest-action:disabled {background:#e4e9df;color:#637164;cursor:default;}
-.world-message {display:grid;justify-items:center;gap:12px;padding:50px 16px;text-align:center;color:#506850;}
-.world-message p {margin:0;} .world-message>.el-icon {font-size:26px;}
-.chapter-message {border-radius:0;border:0;background:#e4ebde;}
-@media(max-width:620px) { .atlas-head {align-items:flex-start;padding:14px;gap:10px;flex-wrap:wrap;} .atlas-foot {padding:11px 12px;gap:8px;} .atlas-controls{gap:5px;} .quiet,.select-wrap{font-size:12px;padding:8px;} .atlas-controls .caret {display:none;} .map-hint{display:none;} .quest-card{flex-wrap:wrap;gap:10px;padding:14px;} .quest-icon{width:40px;height:44px;font-size:20px;} .quest-action{width:100%;} }
+.expedition { display:grid; min-width:0; gap:14px; color:var(--color-text); }
+.atlas-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.atlas-head h1,.place-text h2 { margin:0; line-height:1.3; color:#1d3d33; }
+.atlas-actions { display:flex; gap:6px; flex-wrap:wrap; }
+.atlas-actions small { color:#68735c; }
+.journal-summary { color:#596c60; margin-bottom:12px; }
+.journal-list { display:grid; gap:6px; }
+.journal-list button { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:10px 12px; border-radius:8px; border:1px solid #d9dfd1; background:#fafaf1; color:#335542; text-align:left; }
+.journal-list small { display:block; font-size:12px; color:#687769; margin-top:2px; }
+.atlas-head h1 { font-size:clamp(22px,2.2vw,32px); }
+.atlas-head p { margin:4px 0 0; font-size:13px; color:#596c60; }
+.atlas-head p span { padding:0 4px; color:#8b987e; }
+.mission-link,.enter { display:inline-flex; align-items:center; justify-content:center; gap:7px; background:#f8f7eb; border:1px solid #cdd6c4; border-radius:9px; color:#345642; font:inherit; font-size:13px; font-weight:650; cursor:pointer; padding:10px 14px; }
+.mission-link:hover { background:#edf1e4; }
+.world-message,.place-card { background:var(--color-surface); border:1px solid var(--color-border); border-radius:14px; }
+.world-message { display:grid; justify-items:center; gap:12px; padding:48px 18px; color:#556f5e; }
+.world-message .el-icon { font-size:25px; }
+.place-card { display:flex; gap:15px; padding:17px 20px; align-items:center; }
+.place-icon { display:grid; place-items:center; flex:0 0 46px; height:48px; border:1px solid #e1d4b3; border-radius:11px; font-size:22px; color:#8c6830; background:#f6efd8; }
+.place-icon.locked { color:#63726a; background:#eef0e7; border-color:#d9dfd1; }
+.place-icon.completed { color:#34664e; background:#e6f0e2; border-color:#cbdcc8; }
+.place-text { flex:1; min-width:0; }
+.place-meta,.place-stats,.description { font-size:12px; line-height:1.6; color:#5f7264; }
+.place-meta { font-weight:650; }
+.place-text h2 { margin:3px 0; font-size:clamp(17px,1.6vw,21px); overflow-wrap:anywhere; }
+.description { font-size:13px; overflow-wrap:anywhere; }
+.place-stats,.place-stats span { display:flex; align-items:center; gap:5px; }
+.place-stats { margin-top:5px; gap:14px; flex-wrap:wrap; }
+.enter { background:#245b46; color:#fff; border-color:transparent; white-space:nowrap; }
+.enter:hover { background:#194733; }
+.enter:disabled { color:#596c60; background:#e3e9df; cursor:default; }
+@media(max-width:640px) {
+  .atlas-head { align-items:flex-start; flex-wrap:wrap; }
+  .atlas-actions .mission-link { padding:8px 9px; font-size:12px; }
+  .place-card { flex-wrap:wrap; padding:13px; gap:10px; }
+  .place-icon { flex-basis:38px; height:42px; font-size:19px; }
+  .enter { width:100%; }
+}
 </style>

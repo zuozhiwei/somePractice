@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
@@ -17,21 +18,21 @@ import (
 )
 
 type App struct {
-	DB          *sql.DB
-	key         []byte
-	zone        *time.Location
-	resetMu     sync.Mutex
-	resets      map[string]resetEntry
-	chatMu      sync.Mutex
-	contentMu   sync.Mutex
-	rateMu      sync.Mutex
-	rates       map[string]rateWindow
-	bcryptSlots chan struct{}
-	chatClients map[int64]map[chan chatEvent]struct{}
+	DB               *sql.DB
+	key              []byte
+	zone             *time.Location
+	sendRecoveryMail func(string, string) error
+	chatMu           sync.Mutex
+	contentMu        sync.Mutex
+	rateMu           sync.Mutex
+	rates            map[string]rateWindow
+	bcryptSlots      chan struct{}
+	chatClients      map[int64]map[chan chatEvent]int64
 }
 type claims struct {
-	UserID int64  `json:"userId"`
-	Role   string `json:"role"`
+	UserID  int64  `json:"userId"`
+	Role    string `json:"role"`
+	Version int64  `json:"sv,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -43,7 +44,7 @@ func New(db *sql.DB) *App {
 			zone = z
 		}
 	}
-	return &App{DB: db, key: b, zone: zone, resets: make(map[string]resetEntry), rates: make(map[string]rateWindow), bcryptSlots: make(chan struct{}, 4), chatClients: make(map[int64]map[chan chatEvent]struct{})}
+	return &App{DB: db, key: b, zone: zone, sendRecoveryMail: deliverResetMail, rates: make(map[string]rateWindow), bcryptSlots: make(chan struct{}, 4), chatClients: make(map[int64]map[chan chatEvent]int64)}
 }
 func (a *App) timestamp(v sql.NullString) any {
 	if !v.Valid {
@@ -65,6 +66,8 @@ func (a *App) Register(m *http.ServeMux) {
 	m.HandleFunc("POST /api/files/sign-urls", a.auth(a.signURLs))
 	m.HandleFunc("GET /api/auth/profile", a.auth(a.profile))
 	m.HandleFunc("GET /api/maps", a.auth(a.maps))
+	m.HandleFunc("GET /api/maps/atlas", a.auth(a.mapAtlas))
+	m.HandleFunc("POST /api/maps/{id}/visit", a.auth(a.visitMap))
 	m.HandleFunc("GET /api/maps/progress", a.auth(a.mapProgress))
 	m.HandleFunc("GET /api/maps/{id}", a.auth(a.mapDetail))
 	m.HandleFunc("GET /api/levels/tree", a.auth(a.levelTree))
@@ -118,6 +121,7 @@ func (a *App) Register(m *http.ServeMux) {
 	m.HandleFunc("GET /api/admin/users", a.auth(a.staff(true, a.adminUsers)))
 	m.HandleFunc("PUT /api/admin/users/{id}", a.auth(a.staff(true, a.adminUserProfile)))
 	m.HandleFunc("POST /api/admin/users/{id}/password-reset", a.auth(a.staff(true, a.adminPasswordReset)))
+	m.HandleFunc("POST /api/admin/users/{id}/recovery-code", a.auth(a.staff(true, a.adminRecoveryCode)))
 	m.HandleFunc("DELETE /api/admin/users/{id}", a.auth(a.staff(true, a.adminDeleteUser)))
 	m.HandleFunc("PUT /api/admin/users/{id}/role", a.auth(a.staff(true, a.adminUserUpdate)))
 	m.HandleFunc("PUT /api/admin/users/{id}/level", a.auth(a.staff(true, a.adminUserUpdate)))
@@ -167,13 +171,17 @@ func (a *App) auth(fn func(http.ResponseWriter, *http.Request, int64)) http.Hand
 			return
 		}
 		var role string
-		if err = a.DB.QueryRowContext(r.Context(), `SELECT COALESCE(role,'') FROM users WHERE id=? AND username=?`, c.UserID, c.Subject).Scan(&role); err != nil {
+		var version int64
+		if err = a.DB.QueryRowContext(r.Context(), `SELECT COALESCE(u.role,''),COALESCE(v.version,0) FROM users u LEFT JOIN login_versions v ON v.user_id=u.id WHERE u.id=? AND u.username=?`, c.UserID, c.Subject).Scan(&role, &version); err != nil {
 			reply(w, 401, nil, "用户不存在")
 			return
 		}
-		if role == "SUPERADMIN" && c.Role != role {
+		if c.Version != version || (role == "SUPERADMIN" && c.Role != role) {
 			reply(w, 401, nil, "权限已更新，请重新登录")
 			return
+		}
+		if r.URL.Path == "/ws" {
+			r = r.WithContext(context.WithValue(r.Context(), socketVersionKey{}, version))
 		}
 		fn(w, r, c.UserID)
 	}
@@ -206,9 +214,9 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 	case <-r.Context().Done():
 		return
 	}
-	var id int64
+	var id, version int64
 	var password, role string
-	err := a.DB.QueryRowContext(r.Context(), `SELECT id,password,COALESCE(role,'') FROM users WHERE username=?`, req.Username).Scan(&id, &password, &role)
+	err := a.DB.QueryRowContext(r.Context(), `SELECT u.id,u.password,COALESCE(u.role,''),COALESCE(v.version,0) FROM users u LEFT JOIN login_versions v ON v.user_id=u.id WHERE u.username=?`, req.Username).Scan(&id, &password, &role, &version)
 	if err == sql.ErrNoRows {
 		password = string(dummyPasswordHash)
 	} else if err != nil {
@@ -219,7 +227,7 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 		bad(w, "用户名或密码错误")
 		return
 	}
-	token, err := a.loginToken(id, req.Username, role)
+	token, err := a.loginToken(id, req.Username, role, version)
 	if err != nil {
 		fail(w)
 		return
@@ -240,9 +248,9 @@ func (a *App) signingMethod() *jwt.SigningMethodHMAC {
 	}
 	return method
 }
-func (a *App) loginToken(id int64, username, role string) (string, error) {
+func (a *App) loginToken(id int64, username, role string, version int64) (string, error) {
 	now := time.Now()
-	c := claims{UserID: id, Role: role, RegisteredClaims: jwt.RegisteredClaims{Subject: username, IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(24 * time.Hour))}}
+	c := claims{UserID: id, Role: role, Version: version, RegisteredClaims: jwt.RegisteredClaims{Subject: username, IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(24 * time.Hour))}}
 	return jwt.NewWithClaims(a.signingMethod(), c).SignedString(a.key)
 }
 func (a *App) profile(w http.ResponseWriter, r *http.Request, id int64) {

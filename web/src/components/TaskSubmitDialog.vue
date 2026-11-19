@@ -9,7 +9,7 @@
         </div>
         <div class="status-row">
           当前状态：
-          <span class="status-tag" :class="task.submissionStatus.toLowerCase()">{{ statusText(task.submissionStatus) }}</span>
+          <span class="status-tag" :class="task.submissionStatus.toLowerCase()">{{ submissionStatusText(task.submissionStatus) }}</span>
         </div>
       </div>
 
@@ -77,6 +77,7 @@
 </template>
 
 <script setup>
+import { submissionStatusText } from '../submissionStatus'
 import { ref, computed, nextTick, watch } from 'vue'
 import { tasksApi } from '../api/tasks'
 import { uploadApi } from '../api/upload'
@@ -94,7 +95,7 @@ const aiSubmitting = ref(false)
 const submissionData = ref('')
 const mode = ref('edit')
 const busy = computed(() => submitting.value || aiSubmitting.value)
-const canSubmit = computed(() => submissionData.value.trim().length > 0 && !uploading.value && !busy.value)
+const canSubmit = computed(() => props.task?.submissionStatus !== 'APPROVED' && submissionData.value.trim().length > 0 && !uploading.value && !busy.value)
 let editorSession = 0
 const textareaRef = ref(null)
 const uploading = ref(false)  // 图片上传中标记
@@ -189,9 +190,6 @@ const renderedMarkdown = computed(() => {
   return DOMPurify.sanitize(marked.parse(previewMarkdown.value))
 })
 
-function statusText(s) {
-  return { APPROVED: '已通过', REJECTED: '未通过', PENDING: '审核中', AI_REVIEWED: 'AI已评', NONE: '待提交' }[s] || '待提交'
-}
 
 function insertMarkdown(btn) {
   const el = textareaRef.value

@@ -138,7 +138,7 @@
                 <span v-if="row.role === 'SUPERADMIN'">账号受保护</span>
                 <template v-else>
                   <el-button size="small" type="primary" text @click="openUserEdit(row)">编辑</el-button>
-                  <el-button size="small" type="primary" text :loading="resettingUserId === row.id" @click="sendUserReset(row)">重置密码</el-button>
+                  <el-button size="small" type="primary" text @click="openRecovery(row)">重置密码</el-button>
                   <el-button size="small" type="danger" text @click="removeUser(row)">删除</el-button>
                 </template>
               </td>
@@ -160,6 +160,28 @@
         />
       </div>
     </div>
+
+    <el-dialog v-model="recoveryOpen" title="帮助用户找回密码" width="min(460px, 94vw)" :close-on-click-modal="false"
+               :show-close="!recoveryBusy" :close-on-press-escape="!recoveryBusy" @closed="clearRecovery">
+      <div v-if="recoveryUser" class="recovery-options">
+        <p>登录用户名 <strong>{{ recoveryUser.username }}</strong></p>
+        <template v-if="!recoveryCode">
+          <p>{{ recoveryUser.email ? '绑定邮箱 · ' + recoveryUser.email : '该用户尚未绑定邮箱。' }}</p>
+          <el-button v-if="recoveryUser.email" :disabled="recoveryBusy" @click="sendRecoveryEmail">向绑定邮箱发送验证码</el-button>
+          <div class="recovery-handoff">
+            <p>没有绑定邮箱或收不到邮件时，可核对学生身份后，单独把恢复码交给本人。</p>
+            <el-checkbox v-model="identityVerified" :disabled="recoveryBusy">我已核实该用户身份</el-checkbox>
+            <el-button type="primary" :disabled="!identityVerified || recoveryBusy" @click="issueRecoveryCode">生成一次性恢复码</el-button>
+          </div>
+        </template>
+        <template v-else>
+          <label for="admin-recovery-code">一次性恢复码</label>
+          <input id="admin-recovery-code" class="recovery-code" :value="recoveryCode" readonly @focus="$event.target.select()">
+          <p>恢复码可在 15 分钟内使用一次。请让用户在登录页选择「找回密码 → 管理员恢复码」，输入上方用户名和恢复码，设置新密码。</p>
+        </template>
+      </div>
+      <template #footer><el-button :disabled="recoveryBusy" @click="recoveryOpen = false">关闭</el-button></template>
+    </el-dialog>
 
     <el-dialog v-model="userDialogVisible" title="编辑用户资料" width="min(460px, 94vw)">
       <el-form label-position="top" @submit.prevent="saveUserProfile">
@@ -210,7 +232,7 @@
         <el-table-column prop="taskTitle" label="任务" min-width="180" />
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
-            <span class="sub-status-tag" :class="row.status.toLowerCase()">{{ subStatusText(row.status) }}</span>
+            <span class="sub-status-tag" :class="row.status?.toLowerCase()">{{ submissionStatusText(row.status) }}</span>
           </template>
         </el-table-column>
         <el-table-column label="提交时间" width="170">
@@ -232,7 +254,7 @@
           <el-descriptions-item label="用户">{{ subDetail.name ? subDetail.name + ' (' + subDetail.username + ')' : subDetail.username }}</el-descriptions-item>
           <el-descriptions-item label="任务">{{ subDetail.taskTitle }}</el-descriptions-item>
           <el-descriptions-item label="状态">
-            <span class="sub-status-tag" :class="subDetail.status.toLowerCase()">{{ subStatusText(subDetail.status) }}</span>
+            <span class="sub-status-tag" :class="subDetail.status?.toLowerCase()">{{ submissionStatusText(subDetail.status) }}</span>
           </el-descriptions-item>
           <el-descriptions-item label="提交时间">{{ formatTime(subDetail.submittedAt) }}</el-descriptions-item>
           <el-descriptions-item label="审核时间">{{ subDetail.reviewedAt ? formatTime(subDetail.reviewedAt) : '-' }}</el-descriptions-item>
@@ -253,7 +275,7 @@
           <div class="sub-comment-text">{{ subDetail.reviewComment }}</div>
         </div>
 
-        <div v-if="subDetail.status === 'PENDING' && subDetail.userId !== authStore.user?.id" class="sub-section">
+        <div v-if="awaitingReview(subDetail.status) && subDetail.userId !== authStore.user?.id" class="sub-section">
           <div class="sub-section-title">审核操作</div>
           <div class="sub-actions">
             <el-input v-model="subDetail._comment" placeholder="输入评语" size="small" style="width:200px" />
@@ -419,6 +441,7 @@
 </template>
 
 <script setup>
+import { submissionStatusText, awaitingReview } from '../submissionStatus'
 import { ref, onMounted, reactive, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import { adminApi } from '../api/admin'
 import { tasksApi } from '../api/tasks'
@@ -447,7 +470,11 @@ const userDialogVisible = ref(false)
 const editingUserId = ref(null)
 const userForm = reactive({ username: '', name: '', email: '' })
 const savingUser = ref(false)
-const resettingUserId = ref(null)
+const recoveryOpen = ref(false)
+const recoveryBusy = ref(false)
+const recoveryUser = ref(null)
+const identityVerified = ref(false)
+const recoveryCode = ref('')
 const newInviteCode = ref('')
 const newInviteDesc = ref('')
 const newInviteDays = ref(7)
@@ -709,7 +736,6 @@ const subDetail = ref(null)
 const reviewing = ref(false)
 const aiReviewing = ref(false)
 
-function subStatusText(s) { return { APPROVED:'已通过',REJECTED:'未通过',PENDING:'审核中',AI_REVIEWED:'AI已评' }[s]||s }
 const subMdHtml = computed(() => {
   if (!subDetail.value?.submissionData) return ''
   return DOMPurify.sanitize(marked.parse(subDetail.value.submissionData))
@@ -824,25 +850,35 @@ async function saveUserProfile() {
     savingUser.value = false
   }
 }
-async function sendUserReset(row) {
-  if (!row.email) {
-    ElMessage.warning('该用户未绑定邮箱')
-    return
-  }
+function clearRecovery() {
+  recoveryCode.value = ''
+  identityVerified.value = false
+  recoveryUser.value = null
+}
+function openRecovery(row) {
+  clearRecovery()
+  recoveryUser.value = row
+  recoveryOpen.value = true
+}
+async function sendRecoveryEmail() {
+  if (recoveryBusy.value || !recoveryUser.value?.email) return
+  recoveryBusy.value = true
   try {
-    await ElMessageBox.confirm(`向 ${row.username} 的绑定邮箱 ${row.email} 发送密码重置验证码？`, '重置密码', { type: 'warning' })
-  } catch {
-    return
-  }
-  resettingUserId.value = row.id
-  try {
-    await adminApi.sendPasswordReset(row.id)
-    ElMessage.success('重置验证码已发送')
+    await adminApi.sendPasswordReset(recoveryUser.value.id)
+    ElMessage.success('邮件服务已接收，请用户检查收件箱和垃圾邮件')
   } catch (error) {
-    ElMessage.error(error.response?.data?.message || '发送验证码失败')
-  } finally {
-    resettingUserId.value = null
-  }
+    ElMessage.error(error.response?.data?.message || '发送失败，请重试')
+  } finally { recoveryBusy.value = false }
+}
+async function issueRecoveryCode() {
+  if (recoveryBusy.value || !identityVerified.value) return
+  recoveryBusy.value = true
+  try {
+    const res = await adminApi.issueRecoveryCode(recoveryUser.value.id)
+    recoveryCode.value = res.data.data.recoveryCode
+  } catch (error) {
+    ElMessage.error(error.response?.data?.message || '恢复码生成失败，请重试')
+  } finally { recoveryBusy.value = false }
 }
 async function updateRole(row, role) {
   row._savingRole = true
@@ -1026,6 +1062,10 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.recovery-options, .recovery-handoff { display: grid; justify-items: start; gap: 12px; line-height: 1.6; }
+.recovery-handoff { border-top: 1px solid var(--color-border); padding-top: 16px; margin-top: 4px; }
+.recovery-code { max-width: 100%; width: 100%; padding: 10px; color: var(--color-text); background: var(--el-fill-color-light); border: 1px solid var(--color-border); border-radius: 6px; font: 600 17px/1.4 monospace; }
+
 .admin-page { max-width: 1400px; margin-inline: auto; container: staff / inline-size; }
 .admin-header { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; margin-bottom: 22px; }
 .staff-identity { display: flex; align-items: center; gap: 7px; color: var(--color-text-secondary); font-size: 12px; font-weight: 600; }

@@ -1,0 +1,4532 @@
+{
+  "chapters": [
+    {
+      "id": 1,
+      "name": "初出茅庐",
+      "icon": "🏕️",
+      "description": "个人网页与交互",
+      "story": "从新建文件起步，把 HTML、CSS 和 JavaScript 连成一个可以添加、勾选和删除待办的网页。验收时交一份可直接打开的作品。",
+      "order": 1,
+      "baseline": "7c30cc29e9679980dc67d61aa733657620636f383910b748250ca25c97b3c4de"
+    },
+    {
+      "id": 2,
+      "name": "小试牛刀",
+      "icon": "🗺️",
+      "description": "浏览器里的任务管理器",
+      "story": "让待办刷新后仍在，给旧数据升级结构，做搜索、筛选和键盘操作。用一套固定的测试数据演示作品。",
+      "order": 2,
+      "baseline": "21b4ebfad1062f4dfd144435ed4caa567f979e189c24f513d0b7db09a18c6f7d"
+    },
+    {
+      "id": 3,
+      "name": "扎根大地",
+      "icon": "🏔️",
+      "description": "第一个全栈服务",
+      "story": "通过 HTTP 把网页与 Java 服务连接起来，把数据保存到 MySQL。将项目交给同学，按说明在另一台电脑上跑通。",
+      "order": 3,
+      "baseline": "cfd748b8df35a0d52da1f63e4a2ae3142d7a1a4887e751accca42e89a1a6954f"
+    },
+    {
+      "id": 4,
+      "name": "开门迎客",
+      "icon": "🏰",
+      "description": "有账户的协作应用",
+      "story": "给每位用户自己的任务列表，完成注册、登录、退出和权限校验。用两套练习账号验证两个人的数据互不干扰。",
+      "order": 4,
+      "baseline": "4001d768690cec6720f2cc7efad3d7fb68b71bffe469eb0b518be93fa0f71855"
+    },
+    {
+      "id": 5,
+      "name": "千锤百炼",
+      "icon": "⚒️",
+      "description": "可维护的团队代码",
+      "story": "约定接口、整理错误、用 Git 协作并把边界条件写进自动测试。让一位同伴根据接口文档独立完成联调。",
+      "order": 5,
+      "baseline": "47f52fd6f401a01a586c8c0b60d637d668ee899ebfb7d7fb408eeb8ba0e4d93a"
+    },
+    {
+      "id": 6,
+      "name": "百炼成钢",
+      "icon": "🌲",
+      "description": "基于证据的性能优化",
+      "story": "先记录基线，再用查询计划、缓存、异步和指标改进瓶颈。交付相同数据集上的前后对照和取舍说明。",
+      "order": 6,
+      "baseline": "9099018a5c7689423553ae3a9c65b24c56f9e5d32eafa71dcd36592b9c565c17"
+    },
+    {
+      "id": 7,
+      "name": "独当一面",
+      "icon": "🚀",
+      "description": "可交接的部署",
+      "story": "用自己的练习机或学校提供的环境部署、观察并恢复服务。用一次发布和一次恢复演练完成独立交付。",
+      "order": 7,
+      "baseline": "9ccbf6af6f1a219464a8ba6bcba752a4bb96175a029d7aaf92ddabc508eb94a0"
+    },
+    {
+      "id": 8,
+      "name": "江湖会试",
+      "icon": "🏯",
+      "description": "团队项目与工程交付",
+      "story": "从真实需求出发，与同伴走完设计评审、持续集成、可访问性、数据变更和交接。最后一次验收以别人能接手运行为准。",
+      "order": 8
+    }
+  ],
+  "levels": [
+    {
+      "id": 1,
+      "name": "开启编程之旅",
+      "chapter": 1,
+      "description": "认识编辑器和浏览器，保存并打开自己的第一个文件",
+      "category": "工具",
+      "tier": 1,
+      "order": 1,
+      "xp": 50,
+      "prereqs": [],
+      "tutorial": 1,
+      "tutorialOrder": 1,
+      "guideBaseline": "8e6ae86db777de585071da22e273ec6efc430c4837ae6a17c49a214aa8101014"
+    },
+    {
+      "id": 2,
+      "name": "第一个看得见的页面",
+      "chapter": 1,
+      "description": "写出一个能在浏览器里打开的网页",
+      "category": "前端",
+      "tier": 1,
+      "order": 2,
+      "xp": 50,
+      "prereqs": [
+        1
+      ],
+      "tutorial": 2,
+      "tutorialOrder": 1,
+      "guideBaseline": "1bd01611bbc1eba7e4f0a3d6b4c86c985ea34e1793db1c7d56e9aec348d93cef"
+    },
+    {
+      "id": 3,
+      "name": "给它穿上衣服",
+      "chapter": 1,
+      "description": "让网页变好看，像真正的应用",
+      "category": "前端",
+      "tier": 1,
+      "order": 3,
+      "xp": 50,
+      "prereqs": [
+        2
+      ],
+      "tutorial": 3,
+      "tutorialOrder": 1,
+      "guideBaseline": "159aebe75bf92839e2ce5665aff2a0d85ad842c368f6920fdb13037a1a536451"
+    },
+    {
+      "id": 4,
+      "name": "让它动起来",
+      "chapter": 1,
+      "description": "给页面加上点击、计数等交互",
+      "category": "前端",
+      "tier": 1,
+      "order": 4,
+      "xp": 50,
+      "prereqs": [
+        3
+      ],
+      "tutorial": 4,
+      "tutorialOrder": 1,
+      "guideBaseline": "7a8e32dca27c22131a109c1569af591e85ab014284778b123f8c29add159dbc9"
+    },
+    {
+      "id": 5,
+      "name": "做出第一个作品",
+      "chapter": 1,
+      "description": "用学到的知识做一个静态任务列表",
+      "category": "综合",
+      "tier": 1,
+      "order": 5,
+      "xp": 50,
+      "prereqs": [
+        4
+      ],
+      "tutorial": 5,
+      "tutorialOrder": 1,
+      "guideBaseline": "158bd4d2ba2b1e04251cea44c353af6d332f2ef517b1256a3ef9b5c70dd796b5"
+    },
+    {
+      "id": 6,
+      "name": "出村前的考验",
+      "chapter": 1,
+      "description": "师父验收你的任务管理器",
+      "category": "综合",
+      "tier": 1,
+      "order": 6,
+      "xp": 50,
+      "prereqs": [
+        5
+      ],
+      "tutorial": 6,
+      "tutorialOrder": 1,
+      "guideBaseline": "b69ec49fd85e81c21857326a86049cc6efb9e7d07c7baea0e5238b6bf991f3a8"
+    },
+    {
+      "id": 7,
+      "name": "让数据记住自己",
+      "chapter": 2,
+      "description": "用浏览器自带存储保存数据",
+      "category": "前端",
+      "tier": 2,
+      "order": 1,
+      "xp": 50,
+      "prereqs": [
+        6
+      ],
+      "tutorial": 7,
+      "tutorialOrder": 1,
+      "guideBaseline": "ffda1ea64363d8952924abf8469d1de2ae231de54eb7693f7796b9a6ffbfe496"
+    },
+    {
+      "id": 8,
+      "name": "补齐所有操作",
+      "chapter": 2,
+      "description": "让增删改查全部能保存",
+      "category": "前端",
+      "tier": 2,
+      "order": 2,
+      "xp": 50,
+      "prereqs": [
+        7
+      ],
+      "tutorial": 8,
+      "tutorialOrder": 1,
+      "guideBaseline": "76d7a122af2b0a3c0a4abf22c43ff981df5e2ad7f51fe6707dfecb66ba4b9875"
+    },
+    {
+      "id": 9,
+      "name": "给数据加个状态",
+      "chapter": 2,
+      "description": "区分已完成和未完成",
+      "category": "前端",
+      "tier": 2,
+      "order": 3,
+      "xp": 50,
+      "prereqs": [
+        8
+      ],
+      "tutorial": 9,
+      "tutorialOrder": 1,
+      "guideBaseline": "6ecf6a5e2b00ae92e8523278ea04fb2f9309c0718893f298c68d499f9734ab8b"
+    },
+    {
+      "id": 10,
+      "name": "让数据更有条理",
+      "chapter": 2,
+      "description": "增加排序、统计、筛选",
+      "category": "前端",
+      "tier": 2,
+      "order": 4,
+      "xp": 50,
+      "prereqs": [
+        9
+      ],
+      "tutorial": 10,
+      "tutorialOrder": 1,
+      "guideBaseline": "b2916e71d19832e6bad21c00792243ebb8c49637402f7628065bd225d4dab739"
+    },
+    {
+      "id": 11,
+      "name": "第一个完整作品",
+      "chapter": 2,
+      "description": "打磨一个能用的本地任务管理器",
+      "category": "综合",
+      "tier": 2,
+      "order": 5,
+      "xp": 50,
+      "prereqs": [
+        10
+      ],
+      "tutorial": 11,
+      "tutorialOrder": 1,
+      "guideBaseline": "5dc7ff1b73ba7e43fbf45fa161c76927a6c640550e0bf813714fdf61617acd39"
+    },
+    {
+      "id": 12,
+      "name": "找师父验收",
+      "chapter": 2,
+      "description": "提交作品，获取下一关线索",
+      "category": "综合",
+      "tier": 2,
+      "order": 6,
+      "xp": 50,
+      "prereqs": [
+        11
+      ],
+      "tutorial": 12,
+      "tutorialOrder": 1,
+      "guideBaseline": "3d03378c66df30991e26d8d2cd6ef8417d72c75bcad9ec5bae51b67d7a4ce850"
+    },
+    {
+      "id": 13,
+      "name": "认识后端世界",
+      "chapter": 3,
+      "description": "跑起第一个后端接口",
+      "category": "后端",
+      "tier": 2,
+      "order": 1,
+      "xp": 50,
+      "prereqs": [
+        12
+      ],
+      "tutorial": 13,
+      "tutorialOrder": 1,
+      "guideBaseline": "aa11aa240ce6506bbc734a9661e7c8eb36e5ee89f87e89b4a3c839f442fe9e2a"
+    },
+    {
+      "id": 14,
+      "name": "给数据安个家",
+      "chapter": 3,
+      "description": "安装数据库，创建数据表",
+      "category": "数据库",
+      "tier": 2,
+      "order": 2,
+      "xp": 50,
+      "prereqs": [
+        13
+      ],
+      "tutorial": 14,
+      "tutorialOrder": 1,
+      "guideBaseline": "598c984ecd0da62b989887902e02ca7c6b06a2298f86f1015d48d1f1d49d1b80"
+    },
+    {
+      "id": 15,
+      "name": "让后端连接数据库",
+      "chapter": 3,
+      "description": "用 JPA 操作数据库",
+      "category": "后端",
+      "tier": 2,
+      "order": 3,
+      "xp": 50,
+      "prereqs": [
+        14
+      ],
+      "tutorial": 15,
+      "tutorialOrder": 1,
+      "guideBaseline": "ee615b2a23dbe0ec8341ba1343153184bf3a8e53d2a88031d7af77e803f7a75e"
+    },
+    {
+      "id": 16,
+      "name": "给前端提供接口",
+      "chapter": 3,
+      "description": "实现任务的增删改查 API",
+      "category": "后端",
+      "tier": 2,
+      "order": 4,
+      "xp": 50,
+      "prereqs": [
+        15
+      ],
+      "tutorial": 16,
+      "tutorialOrder": 1,
+      "guideBaseline": "a079038b8defd4502d1ee895cf6b52ea24f874260d922959fe6efdacfcbc0fd8"
+    },
+    {
+      "id": 17,
+      "name": "前后端牵手成功",
+      "chapter": 3,
+      "description": "前端调用后端接口",
+      "category": "前端",
+      "tier": 3,
+      "order": 5,
+      "xp": 50,
+      "prereqs": [
+        16
+      ],
+      "tutorial": 17,
+      "tutorialOrder": 1,
+      "guideBaseline": "b4b7c33051029daa91affd76a0d01b6da681961fa6f9fafeb66244a95c819ccf"
+    },
+    {
+      "id": 18,
+      "name": "扎根成功",
+      "chapter": 3,
+      "description": "交付第一个真正的 Web 应用",
+      "category": "综合",
+      "tier": 3,
+      "order": 6,
+      "xp": 50,
+      "prereqs": [
+        17
+      ],
+      "tutorial": 18,
+      "tutorialOrder": 1,
+      "guideBaseline": "8a73a35cd67e8a5eddd355bff83f4a4b6e2d56235f3fa80b0d2a80f300cc28a7"
+    },
+    {
+      "id": 19,
+      "name": "给系统加一道门",
+      "chapter": 4,
+      "description": "实现用户注册，把账号存到数据库",
+      "category": "后端",
+      "tier": 3,
+      "order": 1,
+      "xp": 50,
+      "prereqs": [
+        18
+      ],
+      "tutorial": 19,
+      "tutorialOrder": 1,
+      "guideBaseline": "8b43b16ab753dbe93dba381596b288ad2a665e488f286c017dad4c54182d3fec"
+    },
+    {
+      "id": 20,
+      "name": "发一张身份牌",
+      "chapter": 4,
+      "description": "实现用户登录，获取身份凭证",
+      "category": "后端",
+      "tier": 3,
+      "order": 2,
+      "xp": 50,
+      "prereqs": [
+        19
+      ],
+      "tutorial": 20,
+      "tutorialOrder": 1,
+      "guideBaseline": "fcc78036e5106aeeaa7aafc1e176552d8731162eb8950c99963b50d40c210faa"
+    },
+    {
+      "id": 21,
+      "name": "认牌不认人",
+      "chapter": 4,
+      "description": "后端验证凭证，确认身份",
+      "category": "后端",
+      "tier": 3,
+      "order": 3,
+      "xp": 50,
+      "prereqs": [
+        20
+      ],
+      "tutorial": 21,
+      "tutorialOrder": 1,
+      "guideBaseline": "feec5da9c703b06db9a2cc29fa9249e83240ec8b0c98a3e44ab7bd90251d8936"
+    },
+    {
+      "id": 22,
+      "name": "你的地盘你做主",
+      "chapter": 4,
+      "description": "每个任务关联用户，只返回自己的",
+      "category": "后端",
+      "tier": 3,
+      "order": 4,
+      "xp": 50,
+      "prereqs": [
+        21
+      ],
+      "tutorial": 22,
+      "tutorialOrder": 1,
+      "guideBaseline": "a42699adb5ec742d36c98262a5f54450d1e2e0adb340f4427a296cb63f5f436f"
+    },
+    {
+      "id": 23,
+      "name": "补上内功心法",
+      "chapter": 4,
+      "description": "把写代码中遇到的 Java 知识系统捋一遍",
+      "category": "后端",
+      "tier": 3,
+      "order": 5,
+      "xp": 50,
+      "prereqs": [
+        22
+      ],
+      "tutorial": 23,
+      "tutorialOrder": 1,
+      "guideBaseline": "b23317d2778358ac5745dc8b77c342ac068665e03bba304ed4ff410d9b31fd93"
+    },
+    {
+      "id": 24,
+      "name": "门禁系统上线",
+      "chapter": 4,
+      "description": "交付带用户认证的完整系统",
+      "category": "综合",
+      "tier": 3,
+      "order": 6,
+      "xp": 50,
+      "prereqs": [
+        23
+      ],
+      "tutorial": 24,
+      "tutorialOrder": 1,
+      "guideBaseline": "9c42ee277219874083bfa88d6e9935872dbc20e88971ff8e7dcacefa9ac8af47"
+    },
+    {
+      "id": 25,
+      "name": "统一接口语言",
+      "chapter": 5,
+      "description": "所有接口返回同样的格式",
+      "category": "后端",
+      "tier": 3,
+      "order": 1,
+      "xp": 50,
+      "prereqs": [
+        24
+      ],
+      "tutorial": 25,
+      "tutorialOrder": 1,
+      "guideBaseline": "d5a891c58023dd39a17c9dfaff94fb7ed36662756b025d7096e2e0a093d71481"
+    },
+    {
+      "id": 26,
+      "name": "优雅地处理错误",
+      "chapter": 5,
+      "description": "出错时返回友好的提示",
+      "category": "后端",
+      "tier": 3,
+      "order": 2,
+      "xp": 50,
+      "prereqs": [
+        25
+      ],
+      "tutorial": 26,
+      "tutorialOrder": 1,
+      "guideBaseline": "6d92ce19ba9a5367778258efa438f9232bc5752daed23810e5b6b3084cd68fd1"
+    },
+    {
+      "id": 27,
+      "name": "给代码上保险",
+      "chapter": 5,
+      "description": "用 Git 管理代码历史",
+      "category": "工具",
+      "tier": 3,
+      "order": 3,
+      "xp": 50,
+      "prereqs": [
+        26
+      ],
+      "tutorial": 27,
+      "tutorialOrder": 1,
+      "guideBaseline": "eee7a701196b89854b8b538fbe6b6ae9820353bbdb0af54facd92e5704e1947e"
+    },
+    {
+      "id": 28,
+      "name": "给代码做体检",
+      "chapter": 5,
+      "description": "校验参数，防止脏数据",
+      "category": "后端",
+      "tier": 3,
+      "order": 4,
+      "xp": 50,
+      "prereqs": [
+        27
+      ],
+      "tutorial": 28,
+      "tutorialOrder": 1,
+      "guideBaseline": "2f7174469fa341f89987e9fd6fca719bd6fa45a6a01ec248e2a20cd2cad52516"
+    },
+    {
+      "id": 29,
+      "name": "写一份说明书",
+      "chapter": 5,
+      "description": "生成 API 文档，让别人知道怎么用",
+      "category": "后端",
+      "tier": 3,
+      "order": 5,
+      "xp": 50,
+      "prereqs": [
+        26
+      ],
+      "tutorial": 29,
+      "tutorialOrder": 1,
+      "guideBaseline": "a445765f038ed78d3ac977e873e0ffc514f9cb2f8bea9228590f95100c785287",
+      "sourcePrereqs": [
+        28
+      ]
+    },
+    {
+      "id": 30,
+      "name": "规范化上线",
+      "chapter": 5,
+      "description": "交付规范、健壮、有文档的系统",
+      "category": "综合",
+      "tier": 3,
+      "order": 6,
+      "xp": 50,
+      "prereqs": [
+        28,
+        29
+      ],
+      "tutorial": 30,
+      "tutorialOrder": 1,
+      "guideBaseline": "6c31bb7a3fffc82a4e240f144b098f8e45d19ff0967f9c49c8d07b5c652662ef",
+      "sourcePrereqs": [
+        29
+      ]
+    },
+    {
+      "id": 31,
+      "name": "找出慢的原因",
+      "chapter": 6,
+      "description": "分析查询为什么慢",
+      "category": "数据库",
+      "tier": 4,
+      "order": 1,
+      "xp": 50,
+      "prereqs": [
+        30
+      ],
+      "tutorial": 31,
+      "tutorialOrder": 1,
+      "guideBaseline": "af47d01055e11041e85d09d72055f9b41991d477db26161eb096dd9872a036fe"
+    },
+    {
+      "id": 32,
+      "name": "给数据建路标",
+      "chapter": 6,
+      "description": "创建索引，让查询变快",
+      "category": "数据库",
+      "tier": 4,
+      "order": 2,
+      "xp": 50,
+      "prereqs": [
+        31
+      ],
+      "tutorial": 32,
+      "tutorialOrder": 1,
+      "guideBaseline": "ba3e8255540f9ed8bca51ead82cba0c00f990b9769ac5f07afdf380890d140dc"
+    },
+    {
+      "id": 33,
+      "name": "别让数据库太累",
+      "chapter": 6,
+      "description": "用缓存存热点数据",
+      "category": "后端",
+      "tier": 4,
+      "order": 3,
+      "xp": 50,
+      "prereqs": [
+        32
+      ],
+      "tutorial": 33,
+      "tutorialOrder": 1,
+      "guideBaseline": "5c261cec14ecb74230fc0ef379eaba73de971ac4671bfaf2c69d7dde5aa6e569"
+    },
+    {
+      "id": 34,
+      "name": "别让用户干等",
+      "chapter": 6,
+      "description": "批量操作改为异步处理",
+      "category": "后端",
+      "tier": 4,
+      "order": 4,
+      "xp": 50,
+      "prereqs": [
+        32
+      ],
+      "tutorial": 34,
+      "tutorialOrder": 1,
+      "guideBaseline": "bb0b997f1da7e4ac9b9a72ce87fcc110eb39833c7472b4edf0be8c7ff51fc0a6",
+      "sourcePrereqs": [
+        33
+      ]
+    },
+    {
+      "id": 35,
+      "name": "给系统装个仪表盘",
+      "chapter": 6,
+      "description": "监控系统运行状态",
+      "category": "运维",
+      "tier": 4,
+      "order": 5,
+      "xp": 50,
+      "prereqs": [
+        32
+      ],
+      "tutorial": 35,
+      "tutorialOrder": 1,
+      "guideBaseline": "b538b60616ea44e298345119713111a541baf97f0e0afa94f6efaf89b1bf6e7b",
+      "sourcePrereqs": [
+        34
+      ]
+    },
+    {
+      "id": 36,
+      "name": "高性能系统上线",
+      "chapter": 6,
+      "description": "交付扛得住压力的系统",
+      "category": "综合",
+      "tier": 4,
+      "order": 6,
+      "xp": 50,
+      "prereqs": [
+        33,
+        34,
+        35
+      ],
+      "tutorial": 36,
+      "tutorialOrder": 1,
+      "guideBaseline": "32e5cae694043942be1334546dca0029072d3b59fbe7cf8d1053dfecc3c10b47",
+      "sourcePrereqs": [
+        35
+      ]
+    },
+    {
+      "id": 37,
+      "name": "认识服务器",
+      "chapter": 7,
+      "description": "在自己或学校的 Linux 练习机上登录，辨认服务地址、端口与日志。",
+      "category": "运维",
+      "tier": 4,
+      "order": 1,
+      "xp": 50,
+      "prereqs": [
+        36
+      ],
+      "tutorial": 37,
+      "tutorialOrder": 1,
+      "guideBaseline": "d11407a73b2c69961397c711f874d312a72215ee0d5233c74cf2f697258b7a4b",
+      "sourceDescription": "购买云服务器，登录进去看看"
+    },
+    {
+      "id": 38,
+      "name": "安顿前端",
+      "chapter": 7,
+      "description": "在服务器上部署前端页面",
+      "category": "运维",
+      "tier": 4,
+      "order": 2,
+      "xp": 50,
+      "prereqs": [
+        37
+      ],
+      "tutorial": 38,
+      "tutorialOrder": 1,
+      "guideBaseline": "a5f7f36262906a9ebbbb7dfbee2092a62dfe10bbce6a278ec338325446ffec7d"
+    },
+    {
+      "id": 39,
+      "name": "安顿后端",
+      "chapter": 7,
+      "description": "在服务器上运行后端服务",
+      "category": "运维",
+      "tier": 4,
+      "order": 3,
+      "xp": 50,
+      "prereqs": [
+        38
+      ],
+      "tutorial": 39,
+      "tutorialOrder": 1,
+      "guideBaseline": "5b8eb12122bb127595129c1a73c45954db65d756a1d347cb758dc049d9e6768f"
+    },
+    {
+      "id": 40,
+      "name": "让前后端连通",
+      "chapter": 7,
+      "description": "配置反向代理，让前后端协同工作",
+      "category": "运维",
+      "tier": 4,
+      "order": 4,
+      "xp": 50,
+      "prereqs": [
+        39
+      ],
+      "tutorial": 40,
+      "tutorialOrder": 1,
+      "guideBaseline": "5cab146d4c197e155d404073e2adb740d7dc5b8e968bd31bea10551c9d1b846d"
+    },
+    {
+      "id": 41,
+      "name": "一键启动所有服务",
+      "chapter": 7,
+      "description": "用 Docker 打包所有服务",
+      "category": "运维",
+      "tier": 4,
+      "order": 5,
+      "xp": 50,
+      "prereqs": [
+        40
+      ],
+      "tutorial": 41,
+      "tutorialOrder": 1,
+      "guideBaseline": "31a2e0bf1c656c840fac78b3ab4f81e8775bd9758524b3b421c3ca74d2dbebe3"
+    },
+    {
+      "id": 42,
+      "name": "部署作品验收",
+      "chapter": 7,
+      "description": "交付一份经过验收的部署作品，并向同伴说明入口和恢复步骤。",
+      "category": "综合",
+      "tier": 4,
+      "order": 6,
+      "xp": 50,
+      "prereqs": [
+        41
+      ],
+      "tutorial": 42,
+      "tutorialOrder": 1,
+      "guideBaseline": "35dbb608995a08fe8ecd5b545cefe2f159b3350e8123116904d555e2255771ac",
+      "sourceDescription": "交付一个公网可访问的生产系统",
+      "sourceName": "出师！"
+    },
+    {
+      "id": 43,
+      "name": "把需求变成可验证的约定",
+      "chapter": 8,
+      "description": "把一个含糊的想法拆成有边界的需求、数据模型和评审记录。",
+      "category": "综合",
+      "tier": 7,
+      "order": 1,
+      "xp": 80,
+      "prereqs": [
+        42
+      ],
+      "tutorial": 43,
+      "tutorialOrder": 0
+    },
+    {
+      "id": 44,
+      "name": "用持续集成守住质量",
+      "chapter": 8,
+      "description": "用自动测试和可重复的流水线验证每次更改。",
+      "category": "综合",
+      "tier": 7,
+      "order": 2,
+      "xp": 80,
+      "prereqs": [
+        43
+      ],
+      "tutorial": 44,
+      "tutorialOrder": 0
+    },
+    {
+      "id": 45,
+      "name": "发布可以恢复的数据变更",
+      "chapter": 8,
+      "description": "用有兼容窗口的数据迁移和恢复演练验证一次小版本。",
+      "category": "综合",
+      "tier": 7,
+      "order": 3,
+      "xp": 80,
+      "prereqs": [
+        43
+      ],
+      "tutorial": 45,
+      "tutorialOrder": 0
+    },
+    {
+      "id": 46,
+      "name": "把成品交给下一位工程师",
+      "chapter": 8,
+      "description": "把功能、体验、发布和故障处置串联，用一次独立交接验收毕业作品。",
+      "category": "综合",
+      "tier": 7,
+      "order": 4,
+      "xp": 80,
+      "prereqs": [
+        44,
+        45
+      ],
+      "tutorial": 46,
+      "tutorialOrder": 0
+    }
+  ],
+  "tasks": [
+    {
+      "id": 165,
+      "title": "显示文件扩展名（后缀名）",
+      "level": 1,
+      "order": 1,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "开启显示扩展名并截图",
+          "weight": 40
+        },
+        {
+          "criteria": "说出 3 个扩展名含义",
+          "weight": 40
+        },
+        {
+          "criteria": "解释开发为何要看扩展名",
+          "weight": 20
+        }
+      ],
+      "baseline": "c64f9a77bc33fccffb9a06974d8ce1657827c7d76b3f3b2b70461a92898e84cb"
+    },
+    {
+      "id": 166,
+      "title": "显示隐藏的项目",
+      "level": 1,
+      "order": 2,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "开启显示隐藏项目并截图",
+          "weight": 40
+        },
+        {
+          "criteria": "说出隐藏文件夹用途",
+          "weight": 40
+        },
+        {
+          "criteria": "解释开发为何要显示",
+          "weight": 20
+        }
+      ],
+      "baseline": "067d6df76a113532f6e548dcbedba6b5e75c16f8b48f9c561d82d2d4ae9aaa6b"
+    },
+    {
+      "id": 167,
+      "title": "用 7-Zip 压缩与解压",
+      "level": 1,
+      "order": 3,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "压缩 .7z 与 .zip 成功",
+          "weight": 40
+        },
+        {
+          "criteria": "解压验证文件完好",
+          "weight": 40
+        },
+        {
+          "criteria": "说出压缩的作用",
+          "weight": 20
+        }
+      ],
+      "baseline": "a369989af70a8455ceeeb4a221aa0901e36c78921e57d108177a5dfab5bfa921"
+    },
+    {
+      "id": 1,
+      "title": "认识编辑器",
+      "level": 1,
+      "order": 4,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "编辑器可以正常打开",
+          "weight": 50
+        },
+        {
+          "criteria": "能描述编辑器和浏览器的不同用途",
+          "weight": 50
+        }
+      ],
+      "baseline": "a5e519e26b6f85594ba5605aca2077d2126bf52aa2b1fdd7299821692810ed6e"
+    },
+    {
+      "id": 2,
+      "title": "创建学习文件夹",
+      "level": 1,
+      "order": 5,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "文件夹和文件创建成功",
+          "weight": 40
+        },
+        {
+          "criteria": "重新打开后内容仍然存在",
+          "weight": 40
+        },
+        {
+          "criteria": "写出学习目标",
+          "weight": 20
+        }
+      ],
+      "baseline": "075e0e7e89afba4188ea08dacf13b3614c422122e671ee1da89896885e6a5ae1"
+    },
+    {
+      "id": 3,
+      "title": "让浏览器显示一句话",
+      "level": 1,
+      "order": 6,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "浏览器显示标题",
+          "weight": 40
+        },
+        {
+          "criteria": "修改并刷新后显示新内容",
+          "weight": 40
+        },
+        {
+          "criteria": "能说明保存和刷新各做了什么",
+          "weight": 20
+        }
+      ],
+      "baseline": "21ba428195b3ee734d513b41dbf9de44498234ac658b4fb32565ee7231528100"
+    },
+    {
+      "id": 4,
+      "title": "找回并修改自己的文件",
+      "level": 1,
+      "order": 7,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "页面显示标题和段落",
+          "weight": 50
+        },
+        {
+          "criteria": "文件保存在学习文件夹",
+          "weight": 30
+        },
+        {
+          "criteria": "尝试解释文件后缀的作用",
+          "weight": 20
+        }
+      ],
+      "baseline": "6c8df8c18add6e86245944801e8a7e771754f4f0d6a3dcf8c03a2a351c9ac06d"
+    },
+    {
+      "id": 5,
+      "title": "认识调试工具",
+      "level": 1,
+      "order": 8,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "能打开开发者工具并找到标题",
+          "weight": 40
+        },
+        {
+          "criteria": "尝试修改文字并刷新",
+          "weight": 40
+        },
+        {
+          "criteria": "能描述刷新后的变化",
+          "weight": 20
+        }
+      ],
+      "baseline": "6d5be05f10d231700e86a8520ad3b5c63955ef52d699b405326c6e32d3aba463"
+    },
+    {
+      "id": 6,
+      "title": "创建并打开第一个 HTML 文件",
+      "level": 2,
+      "order": 1,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "index.html 文件存在且结构完整",
+          "weight": 50
+        },
+        {
+          "criteria": "浏览器能打开并显示文字",
+          "weight": 50
+        }
+      ],
+      "baseline": "ab93661ded5663a7c14928795fb4946d63c72a85a28eafc823a7fdc240d8d940"
+    },
+    {
+      "id": 7,
+      "title": "认识 HTML 基本结构",
+      "level": 2,
+      "order": 2,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "HTML 基本结构完整（html/head/body）",
+          "weight": 40
+        },
+        {
+          "criteria": "title 显示在浏览器标签栏",
+          "weight": 30
+        },
+        {
+          "criteria": "h1 和 p 标签正确显示",
+          "weight": 30
+        }
+      ],
+      "baseline": "a14af9f33411ffe0941ded18d164d20a59d3abadd17acbd082bbe6684a4811b3"
+    },
+    {
+      "id": 8,
+      "title": "添加列表与输入框",
+      "level": 2,
+      "order": 3,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "列表正确显示三项内容",
+          "weight": 40
+        },
+        {
+          "criteria": "输入框和按钮出现在页面",
+          "weight": 30
+        },
+        {
+          "criteria": "代码格式规范、缩进正确",
+          "weight": 30
+        }
+      ],
+      "baseline": "95a69d50986eea58b6988129bfae96559601c1cc5911f25a0f410c49a2f7b0c5"
+    },
+    {
+      "id": 9,
+      "title": "插入图片与超链接",
+      "level": 2,
+      "order": 4,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "图片在页面中正常显示",
+          "weight": 50
+        },
+        {
+          "criteria": "超链接点击可跳转",
+          "weight": 30
+        },
+        {
+          "criteria": "文件路径使用相对路径",
+          "weight": 20
+        }
+      ],
+      "baseline": "d1bd93556ddef6affa40d81adeea11977d566f9ec3dd3fe9382424063a880965"
+    },
+    {
+      "id": 10,
+      "title": "引入 CSS 样式文件",
+      "level": 3,
+      "order": 1,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "style.css 被正确引入",
+          "weight": 40
+        },
+        {
+          "criteria": "背景色和字体样式生效",
+          "weight": 40
+        },
+        {
+          "criteria": "CSS 与 HTML 分离到两个文件",
+          "weight": 20
+        }
+      ],
+      "baseline": "c7da33d3f7d9716457aa087a9b19f3d454a6b9a4dffd3a780f68e64e9eebb1f7"
+    },
+    {
+      "id": 11,
+      "title": "用选择器设置颜色与字体",
+      "level": 3,
+      "order": 2,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "标签选择器 h1 样式生效",
+          "weight": 30
+        },
+        {
+          "criteria": "按钮颜色圆角样式生效",
+          "weight": 40
+        },
+        {
+          "criteria": "列表间距与行高合理",
+          "weight": 30
+        }
+      ],
+      "baseline": "f5a028bc2bf50af284265f4d8960655a341d56636961f1fa06d0368d59b13230"
+    },
+    {
+      "id": 12,
+      "title": "用盒子模型做一张卡片",
+      "level": 3,
+      "order": 3,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "卡片容器创建成功",
+          "weight": 40
+        },
+        {
+          "criteria": "内容全部放在卡片内",
+          "weight": 30
+        },
+        {
+          "criteria": "盒模型属性（padding/border/shadow）齐全",
+          "weight": 30
+        }
+      ],
+      "baseline": "921df8075ebd1c6bc10f0edd017c95cd52d087e47ae3f8215a12a1019a4a840f"
+    },
+    {
+      "id": 13,
+      "title": "用 Flexbox 排列元素",
+      "level": 3,
+      "order": 4,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "输入框和按钮横向排列",
+          "weight": 40
+        },
+        {
+          "criteria": "卡片在页面中居中显示",
+          "weight": 40
+        },
+        {
+          "criteria": "使用 flex 而非 hack 实现",
+          "weight": 20
+        }
+      ],
+      "baseline": "8394505a33cb6515e7974f346d9368f96902cbebdff7b5cc22a29c93a67c9c6b"
+    },
+    {
+      "id": 14,
+      "title": "引入 JavaScript 脚本",
+      "level": 4,
+      "order": 1,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "script.js 被正确引入",
+          "weight": 50
+        },
+        {
+          "criteria": "控制台输出加载成功日志",
+          "weight": 50
+        }
+      ],
+      "baseline": "c2a103069e709ca33939b5eddf323161796c800c67c1577f3919e59dde0e4ff6"
+    },
+    {
+      "id": 15,
+      "title": "点击按钮弹出提示",
+      "level": 4,
+      "order": 2,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "按钮点击事件绑定成功",
+          "weight": 40
+        },
+        {
+          "criteria": "点击后 alert 弹出",
+          "weight": 30
+        },
+        {
+          "criteria": "事件代码写在 script.js 中",
+          "weight": 30
+        }
+      ],
+      "baseline": "a1e817591ee0cd9969245819b1791278f22e97a7d742369f058202bde4dd2353"
+    },
+    {
+      "id": 16,
+      "title": "获取并修改页面内容",
+      "level": 4,
+      "order": 3,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "能读取输入框内容",
+          "weight": 40
+        },
+        {
+          "criteria": "新任务动态添加到列表",
+          "weight": 40
+        },
+        {
+          "criteria": "空输入时不添加空项",
+          "weight": 20
+        }
+      ],
+      "baseline": "0d8b4bb54fcdbe7b958b528d7bf59de55ffef6555d04c925c071dd8f05d9d1df"
+    },
+    {
+      "id": 17,
+      "title": "用数组管理任务",
+      "level": 4,
+      "order": 4,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "任务存储在数组中",
+          "weight": 40
+        },
+        {
+          "criteria": "渲染函数正确展示所有任务",
+          "weight": 40
+        },
+        {
+          "criteria": "添加后输入框被清空",
+          "weight": 20
+        }
+      ],
+      "baseline": "7a62527abc0747353c7922b15cc44529321be0b43b64b4d48e69a433677c4214"
+    },
+    {
+      "id": 18,
+      "title": "任务计数与完成切换",
+      "level": 4,
+      "order": 5,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "任务计数实时更新",
+          "weight": 40
+        },
+        {
+          "criteria": "完成按钮可切换样式",
+          "weight": 40
+        },
+        {
+          "criteria": "无多余全局变量或报错",
+          "weight": 20
+        }
+      ],
+      "baseline": "41caa8bf8469b2fc4f6e47a448f8f3f93bcaca8feb3d86c875d309012a48c5f3"
+    },
+    {
+      "id": 156,
+      "title": "用浏览器调试工具调试 JS",
+      "level": 4,
+      "order": 6,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "断点调试全流程可操作",
+          "weight": 40
+        },
+        {
+          "criteria": "能通过报错定位代码行",
+          "weight": 40
+        },
+        {
+          "criteria": "调试过程截图与说明",
+          "weight": 20
+        }
+      ],
+      "baseline": "1526909cadea9ea80b3b25cd2ddabb827fa98de397f1c5e497c810b6333425f7"
+    },
+    {
+      "id": 19,
+      "title": "设计页面结构与样式",
+      "level": 5,
+      "order": 1,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "四大区域齐全",
+          "weight": 40
+        },
+        {
+          "criteria": "视觉风格统一美观",
+          "weight": 40
+        },
+        {
+          "criteria": "页面在 1366px 宽度下布局正常",
+          "weight": 20
+        }
+      ],
+      "baseline": "4e42948968676b555aabf805d092889df1b3432e23fad628c93456b001889fc8"
+    },
+    {
+      "id": 20,
+      "title": "实现添加与删除功能",
+      "level": 5,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "添加功能正常",
+          "weight": 40
+        },
+        {
+          "criteria": "删除功能正常且不误删",
+          "weight": 40
+        },
+        {
+          "criteria": "计数与列表一致",
+          "weight": 20
+        }
+      ],
+      "baseline": "410d5c8adbea4f6b215eebb1332d2c75a54a2cc9023373447a7927993c91ba11"
+    },
+    {
+      "id": 21,
+      "title": "实现标记完成功能",
+      "level": 5,
+      "order": 3,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "点击切换完成状态",
+          "weight": 50
+        },
+        {
+          "criteria": "统计区两项数据正确",
+          "weight": 30
+        },
+        {
+          "criteria": "完成状态样式区分明显",
+          "weight": 20
+        }
+      ],
+      "baseline": "57920d08ed213d7f23e07a26753d902923de2c7b520110453cd2a765bf1e3b89"
+    },
+    {
+      "id": 22,
+      "title": "边界情况处理",
+      "level": 5,
+      "order": 4,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "空输入被拦截",
+          "weight": 30
+        },
+        {
+          "criteria": "特殊字符正常显示",
+          "weight": 30
+        },
+        {
+          "criteria": "删除到最后一项无异常",
+          "weight": 40
+        }
+      ],
+      "baseline": "4ea67dbf0037c4c6d16e8ced9f78947b2864c3813646b0ad89d821b5f5d8913a"
+    },
+    {
+      "id": 23,
+      "title": "整体联调与自测",
+      "level": 5,
+      "order": 5,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "代码有注释、结构清晰",
+          "weight": 30
+        },
+        {
+          "criteria": "完整流程自测通过",
+          "weight": 40
+        },
+        {
+          "criteria": "自测报告包含测试与修复记录",
+          "weight": 30
+        }
+      ],
+      "baseline": "8a1ebeb461538673d260ab25f621748cf10d1d69d9d5ce4db9801688b3da1d25"
+    },
+    {
+      "id": 24,
+      "title": "提交你的第一个作品",
+      "level": 6,
+      "order": 1,
+      "xp": 30,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "作品文件完整可运行",
+          "weight": 40
+        },
+        {
+          "criteria": "截图展示核心功能",
+          "weight": 30
+        },
+        {
+          "criteria": "提交说明包含结构与心得",
+          "weight": 30
+        }
+      ],
+      "baseline": "f3d9389643931aefec7deff59a701b0342ed971cf2b2958eb4e5ce6815a40ae3"
+    },
+    {
+      "id": 25,
+      "title": "认识 localStorage",
+      "level": 7,
+      "order": 1,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "三个 API 均执行成功",
+          "weight": 50
+        },
+        {
+          "criteria": "对 localStorage 的解释准确",
+          "weight": 50
+        }
+      ],
+      "baseline": "e5636b93abdfbb0f18582402721d2058f9fc421cf8cd2610703c82576a946aa3"
+    },
+    {
+      "id": 26,
+      "title": "把任务数组存入 localStorage",
+      "level": 7,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "saveTasks 正确写入 localStorage",
+          "weight": 40
+        },
+        {
+          "criteria": "loadTasks 正确还原数组",
+          "weight": 40
+        },
+        {
+          "criteria": "页面加载时自动读取",
+          "weight": 20
+        }
+      ],
+      "baseline": "2c4b75df0ea9ffcc6904337932cfb5fc5f639b6fef5eb04128a997e0685e84ce"
+    },
+    {
+      "id": 27,
+      "title": "添加任务时保存",
+      "level": 7,
+      "order": 3,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "添加后数据写入 localStorage",
+          "weight": 60
+        },
+        {
+          "criteria": "开发者工具中能看到数据",
+          "weight": 40
+        }
+      ],
+      "baseline": "d6c73d051f97bec8b1989090d6190fa35c62023de6697f6efb4b4dff1583490d"
+    },
+    {
+      "id": 28,
+      "title": "刷新页面数据不丢失",
+      "level": 7,
+      "order": 4,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "刷新后数据保留",
+          "weight": 60
+        },
+        {
+          "criteria": "重启浏览器后数据保留",
+          "weight": 40
+        }
+      ],
+      "baseline": "4f96f2d42c5d379364b1300cf317dbb7437bc0949b4d3a1dc5aa74d81f027546"
+    },
+    {
+      "id": 29,
+      "title": "封装增删改查函数",
+      "level": 8,
+      "order": 1,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "四个函数封装完整",
+          "weight": 50
+        },
+        {
+          "criteria": "现有功能改用函数调用",
+          "weight": 30
+        },
+        {
+          "criteria": "函数职责单一无重复逻辑",
+          "weight": 20
+        }
+      ],
+      "baseline": "6588eab6bd069cca79e881d75ab9dee55f3c39faff6227743e69d171bc394037"
+    },
+    {
+      "id": 30,
+      "title": "实现编辑任务功能",
+      "level": 8,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "编辑按钮可进入编辑态",
+          "weight": 40
+        },
+        {
+          "criteria": "修改后保存成功且持久化",
+          "weight": 40
+        },
+        {
+          "criteria": "取消编辑不改变原内容",
+          "weight": 20
+        }
+      ],
+      "baseline": "e91255903e813fc35ce8a352122d8db424f54dd96867f08fa4dd4540c563faa4"
+    },
+    {
+      "id": 31,
+      "title": "实现清空全部任务",
+      "level": 8,
+      "order": 3,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "清空前有确认提示",
+          "weight": 40
+        },
+        {
+          "criteria": "清空后界面和存储都为空",
+          "weight": 40
+        },
+        {
+          "criteria": "误点取消不会清空",
+          "weight": 20
+        }
+      ],
+      "baseline": "b780bdbff265425b6fa9fed830dc00e56e3fc8f90e0753e09db403e7b19ff8fa"
+    },
+    {
+      "id": 32,
+      "title": "完整 CRUD 回归测试",
+      "level": 8,
+      "order": 4,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "增删改查全流程测试",
+          "weight": 50
+        },
+        {
+          "criteria": "刷新后数据与操作前一致",
+          "weight": 30
+        },
+        {
+          "criteria": "测试记录截图完整",
+          "weight": 20
+        }
+      ],
+      "baseline": "242e6c5438d7b1e5bfaca38ae2461c90a0c9f60fa9e0ba634091dc2ea7cf8d8d"
+    },
+    {
+      "id": 33,
+      "title": "任务改为对象存储",
+      "level": 9,
+      "order": 1,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "数组元素为对象结构",
+          "weight": 50
+        },
+        {
+          "criteria": "全部代码同步改造完成",
+          "weight": 30
+        },
+        {
+          "criteria": "刷新后数据格式正确",
+          "weight": 20
+        }
+      ],
+      "baseline": "2b2a1841fa7ffb55f27787dcb2b1c8b0045323e389ebfc7e2d963be7641877b9"
+    },
+    {
+      "id": 34,
+      "title": "切换完成状态并持久化",
+      "level": 9,
+      "order": 2,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "点击切换 done 状态",
+          "weight": 40
+        },
+        {
+          "criteria": "渲染样式随状态变化",
+          "weight": 30
+        },
+        {
+          "criteria": "刷新后状态保持",
+          "weight": 30
+        }
+      ],
+      "baseline": "deaaf0f7dff03263d3338b97ce00e382dace306b7b2a7b3a01287516b91962b2"
+    },
+    {
+      "id": 35,
+      "title": "统计已完成和未完成",
+      "level": 9,
+      "order": 3,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "三项统计正确显示",
+          "weight": 50
+        },
+        {
+          "criteria": "使用 filter 统计",
+          "weight": 30
+        },
+        {
+          "criteria": "操作后统计实时更新",
+          "weight": 20
+        }
+      ],
+      "baseline": "dcec0f64ce23f85d8d0a482df8e469bbb559078b9d3e8bf2cce1e7ab697f4cc0"
+    },
+    {
+      "id": 36,
+      "title": "给任务添加创建时间",
+      "level": 10,
+      "order": 1,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "createdAt 字段正确记录",
+          "weight": 50
+        },
+        {
+          "criteria": "时间显示在任务下方",
+          "weight": 50
+        }
+      ],
+      "baseline": "757f636f25ea56417e25b7690e7e6571beec7cb2cb3c88e5357985606dc7c1e5"
+    },
+    {
+      "id": 37,
+      "title": "按时间排序任务",
+      "level": 10,
+      "order": 2,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "排序功能可切换",
+          "weight": 50
+        },
+        {
+          "criteria": "排序结果正确且持久化",
+          "weight": 50
+        }
+      ],
+      "baseline": "2da768aa6fe0089064116720eb840d74a70126c3ae92d00ec540934a77c2ff33"
+    },
+    {
+      "id": 38,
+      "title": "按状态筛选任务",
+      "level": 10,
+      "order": 3,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "三个筛选选项可切换",
+          "weight": 50
+        },
+        {
+          "criteria": "筛选结果与计数正确",
+          "weight": 50
+        }
+      ],
+      "baseline": "c3fd3a87dcd5744a7a050149829f9808455d26a8a0485664412be0c88d787abe"
+    },
+    {
+      "id": 39,
+      "title": "搜索任务",
+      "level": 10,
+      "order": 4,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "实时搜索过滤生效",
+          "weight": 50
+        },
+        {
+          "criteria": "清空搜索恢复全部",
+          "weight": 50
+        }
+      ],
+      "baseline": "507b1b055d7d24449d33a5ea41c6c52025be9abf3ce1a0cb24611180d40b39f8"
+    },
+    {
+      "id": 157,
+      "title": "数据导出与导入",
+      "level": 10,
+      "order": 5,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "导出文件为合法 JSON",
+          "weight": 40
+        },
+        {
+          "criteria": "导入恢复成功且有确认",
+          "weight": 40
+        },
+        {
+          "criteria": "非法文件处理安全",
+          "weight": 20
+        }
+      ],
+      "baseline": "e05bfc0c6ad739f2b8fbffbe320554bbf5fffa7ae6637762e81226be4052bf89"
+    },
+    {
+      "id": 40,
+      "title": "重构代码结构",
+      "level": 11,
+      "order": 1,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "代码按功能分区块",
+          "weight": 40
+        },
+        {
+          "criteria": "重复逻辑已提取函数",
+          "weight": 30
+        },
+        {
+          "criteria": "无调试日志残留",
+          "weight": 30
+        }
+      ],
+      "baseline": "c6f40a7b7103e33377e104ded1a84b952e3e483481934a0ecbe51112a7444c45"
+    },
+    {
+      "id": 41,
+      "title": "完善界面样式",
+      "level": 11,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "视觉风格统一",
+          "weight": 40
+        },
+        {
+          "criteria": "状态标签清晰区分",
+          "weight": 30
+        },
+        {
+          "criteria": "空状态提示存在",
+          "weight": 30
+        }
+      ],
+      "baseline": "3917cdc2e8cdeb26906a6e588809c5112e645a3d198215616d1bc4d9eca66796"
+    },
+    {
+      "id": 42,
+      "title": "处理异常数据",
+      "level": 11,
+      "order": 3,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "无数据时正常显示空列表",
+          "weight": 30
+        },
+        {
+          "criteria": "损坏数据被安全处理",
+          "weight": 40
+        },
+        {
+          "criteria": "页面无控制台报错",
+          "weight": 30
+        }
+      ],
+      "baseline": "05363bbd0c84d96cd2dc98a6e07bcd3eba97376b43a22660ffb04649e2b42c45"
+    },
+    {
+      "id": 43,
+      "title": "键盘操作支持",
+      "level": 11,
+      "order": 4,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "回车添加任务",
+          "weight": 40
+        },
+        {
+          "criteria": "Delete 删除选中任务",
+          "weight": 30
+        },
+        {
+          "criteria": "原有点击功能正常",
+          "weight": 30
+        }
+      ],
+      "baseline": "b5876537789c9c88b3746fc976e544e5c0d9dcf0281e58447df57f9c7949ce3e"
+    },
+    {
+      "id": 44,
+      "title": "写使用说明与自测",
+      "level": 11,
+      "order": 5,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "说明文档完整",
+          "weight": 40
+        },
+        {
+          "criteria": "全功能自测通过",
+          "weight": 40
+        },
+        {
+          "criteria": "自测记录可查",
+          "weight": 20
+        }
+      ],
+      "baseline": "e512632d5e4ed93fd733df5a5878d7a9d17607ff547842b718c81bc54eeb85a7"
+    },
+    {
+      "id": 45,
+      "title": "提交本地任务管理器作品",
+      "level": 12,
+      "order": 1,
+      "xp": 30,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "项目文件完整",
+          "weight": 40
+        },
+        {
+          "criteria": "截图覆盖核心功能",
+          "weight": 30
+        },
+        {
+          "criteria": "说明与心得充分",
+          "weight": 30
+        }
+      ],
+      "baseline": "f63502ba111c6ae6130f97c8120a20776c65c2ab448e9f0ff1fdb1ac4cd72dce"
+    },
+    {
+      "id": 46,
+      "title": "用 Spring Initializr 创建项目",
+      "level": 13,
+      "order": 1,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "项目成功创建并打开",
+          "weight": 50
+        },
+        {
+          "criteria": "目录结构正确",
+          "weight": 30
+        },
+        {
+          "criteria": "pom.xml 含 spring-boot-starter-web",
+          "weight": 20
+        }
+      ],
+      "baseline": "f10971dab3bdc7ad433490051754f8e9d420044e54b54fc0ae8e504a8f55feae"
+    },
+    {
+      "id": 47,
+      "title": "跑起第一个 Spring Boot 应用",
+      "level": 13,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "应用成功启动无报错",
+          "weight": 60
+        },
+        {
+          "criteria": "端口 8080 正常监听",
+          "weight": 40
+        }
+      ],
+      "baseline": "b4dbfc6242ce7a8dd9bda182225a495e34a9e286b606532c6439379d431b1eda"
+    },
+    {
+      "id": 48,
+      "title": "编写第一个 GET 接口",
+      "level": 13,
+      "order": 3,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "接口返回正确内容",
+          "weight": 60
+        },
+        {
+          "criteria": "访问路径与注解一致",
+          "weight": 40
+        }
+      ],
+      "baseline": "68a12ad798eb0fb64e1438b16664a4067677f55c1835f991e3e1cd14c1fbf957"
+    },
+    {
+      "id": 49,
+      "title": "理解 JSON 与接口概念",
+      "level": 13,
+      "order": 4,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "接口返回 JSON 格式",
+          "weight": 40
+        },
+        {
+          "criteria": "三个概念解释准确",
+          "weight": 60
+        }
+      ],
+      "baseline": "a38e59f7e90a51314d05a8dfb0fb6d634bcf8a2d66342b5ea7436f7ca8b36561"
+    },
+    {
+      "id": 158,
+      "title": "认识 pom.xml 与 Maven 依赖管理",
+      "level": 13,
+      "order": 5,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "Maven/依赖概念解释准确",
+          "weight": 40
+        },
+        {
+          "criteria": "成功添加并使用了新依赖",
+          "weight": 40
+        },
+        {
+          "criteria": "提交说明完整",
+          "weight": 20
+        }
+      ],
+      "baseline": "f50f1211029304754d97b25dd6d97de3c0c3b1117984405cea96da6cdb217a82"
+    },
+    {
+      "id": 50,
+      "title": "安装并启动 MySQL",
+      "level": 14,
+      "order": 1,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "MySQL 服务运行中",
+          "weight": 50
+        },
+        {
+          "criteria": "命令行登录成功",
+          "weight": 50
+        }
+      ],
+      "baseline": "f9863b59d921bf8b15acbef471e4091e1ae70e0be0cd4e39bf4d9a01fbfdf13b"
+    },
+    {
+      "id": 51,
+      "title": "创建数据库和数据表",
+      "level": 14,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "数据库创建成功",
+          "weight": 30
+        },
+        {
+          "criteria": "task 表结构正确",
+          "weight": 50
+        },
+        {
+          "criteria": "验证命令输出正常",
+          "weight": 20
+        }
+      ],
+      "baseline": "0fe5a8fb835f9938a00d89cd0ae9753c0a3044da71e0105b011c523f74d3b4e2"
+    },
+    {
+      "id": 52,
+      "title": "用 SQL 增删改查",
+      "level": 14,
+      "order": 3,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "四条 SQL 全部执行成功",
+          "weight": 60
+        },
+        {
+          "criteria": "结果数据正确",
+          "weight": 40
+        }
+      ],
+      "baseline": "c79b00ea30b456d8a466caacae63aaff00e5a96e80db9dc580c74b240b831657"
+    },
+    {
+      "id": 53,
+      "title": "用可视化工具连接数据库",
+      "level": 14,
+      "order": 4,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "可视化工具连接成功",
+          "weight": 60
+        },
+        {
+          "criteria": "能看到数据库与表数据",
+          "weight": 40
+        }
+      ],
+      "baseline": "6547bc395c6ddddeda7d4e448d199b87f69373ff02d32beb0c904b047672d797"
+    },
+    {
+      "id": 54,
+      "title": "配置数据源",
+      "level": 15,
+      "order": 1,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "依赖添加正确",
+          "weight": 30
+        },
+        {
+          "criteria": "数据源配置完整",
+          "weight": 40
+        },
+        {
+          "criteria": "应用启动连接数据库成功",
+          "weight": 30
+        }
+      ],
+      "baseline": "0fcc9f99118099fc276e85d3baf7e0e7b43d0104a12ff0d96c7c5a9d7f1f19ad"
+    },
+    {
+      "id": 55,
+      "title": "创建实体类",
+      "level": 15,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "实体类注解完整",
+          "weight": 50
+        },
+        {
+          "criteria": "字段与表结构对应",
+          "weight": 50
+        }
+      ],
+      "baseline": "8fb7e54d86a1215fd27f3f998b22a4419eb6f0f6e382637be805d727147ab665"
+    },
+    {
+      "id": 56,
+      "title": "用 Repository 查询数据",
+      "level": 15,
+      "order": 3,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "Repository 定义正确",
+          "weight": 40
+        },
+        {
+          "criteria": "接口返回数据库数据",
+          "weight": 60
+        }
+      ],
+      "baseline": "35c1b9cbe12a23f40eb8305a55ef180da25d5b1c404c1dcba8db601e3351aeeb"
+    },
+    {
+      "id": 57,
+      "title": "向数据库添加数据",
+      "level": 15,
+      "order": 4,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "POST 接口可接收并保存",
+          "weight": 50
+        },
+        {
+          "criteria": "数据库验证数据存在",
+          "weight": 50
+        }
+      ],
+      "baseline": "125313db46f411ccb8f54ded0582af023ab20471c90af847b84e9012f34e0c26"
+    },
+    {
+      "id": 58,
+      "title": "实现更新任务接口",
+      "level": 16,
+      "order": 1,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "PUT 接口逻辑正确",
+          "weight": 60
+        },
+        {
+          "criteria": "id 不存在时返回合理错误",
+          "weight": 40
+        }
+      ],
+      "baseline": "342fcfffcae1cab597cbf7e4177ef087b6772b5583ab1a0e3dd76e131bf4b853"
+    },
+    {
+      "id": 59,
+      "title": "实现删除任务接口",
+      "level": 16,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "DELETE 接口可删除数据",
+          "weight": 60
+        },
+        {
+          "criteria": "异常情况不崩溃",
+          "weight": 40
+        }
+      ],
+      "baseline": "a8678af5d2c79723393d7587b4d87ef658af88c6432b1a963ead6b5da2281079"
+    },
+    {
+      "id": 60,
+      "title": "实现查询单个任务接口",
+      "level": 16,
+      "order": 3,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "能返回单个任务",
+          "weight": 60
+        },
+        {
+          "criteria": "不存在时错误提示明确",
+          "weight": 40
+        }
+      ],
+      "baseline": "94076db57e47221d097df4016fd5dfd05817b5c32ea4eb5844134e21a324fea0"
+    },
+    {
+      "id": 61,
+      "title": "理解 HTTP 方法语义",
+      "level": 16,
+      "order": 4,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "HTTP 方法解释准确",
+          "weight": 50
+        },
+        {
+          "criteria": "状态码解释准确",
+          "weight": 30
+        },
+        {
+          "criteria": "结合自己代码举例",
+          "weight": 20
+        }
+      ],
+      "baseline": "9edee7f8cf7b06af0859d90ac4046a13548315e10fc66a62fcba582bb41d6420"
+    },
+    {
+      "id": 62,
+      "title": "用 Postman 完整测试",
+      "level": 16,
+      "order": 5,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "五个接口全部测试通过",
+          "weight": 60
+        },
+        {
+          "criteria": "测试报告完整",
+          "weight": 40
+        }
+      ],
+      "baseline": "2888226a2d5cc92949e7777fefa1f840a5dbfb9e4e02d2b63f3c653bf925081c"
+    },
+    {
+      "id": 63,
+      "title": "配置前端代理",
+      "level": 17,
+      "order": 1,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "代理配置正确",
+          "weight": 50
+        },
+        {
+          "criteria": "前端能请求到后端数据",
+          "weight": 50
+        }
+      ],
+      "baseline": "19b7d38a02e4bfcb97c2a60af8b3af4c97bf3482678eed81e3fdd4e6657c1e2b"
+    },
+    {
+      "id": 64,
+      "title": "用 axios 封装请求",
+      "level": 17,
+      "order": 2,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "axios 安装成功",
+          "weight": 30
+        },
+        {
+          "criteria": "四个函数封装完整",
+          "weight": 50
+        },
+        {
+          "criteria": "路径统一使用相对路径",
+          "weight": 20
+        }
+      ],
+      "baseline": "2b9f8f7b6936beaf59af0994977ca0ec060ccb5359cc49ddcc04275ce586b7b7"
+    },
+    {
+      "id": 65,
+      "title": "前端列表对接后端",
+      "level": 17,
+      "order": 3,
+      "xp": 25,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "列表从后端加载",
+          "weight": 40
+        },
+        {
+          "criteria": "增删改全部走后端接口",
+          "weight": 40
+        },
+        {
+          "criteria": "操作后界面正确刷新",
+          "weight": 20
+        }
+      ],
+      "baseline": "4fb62bc61e0337a4d5ad10c107232c0314bad262c4853343999ff54e22bbedab"
+    },
+    {
+      "id": 66,
+      "title": "前后端联调完整流程",
+      "level": 17,
+      "order": 4,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "全流程联调通过",
+          "weight": 60
+        },
+        {
+          "criteria": "重启后数据持久",
+          "weight": 20
+        },
+        {
+          "criteria": "联调报告完整",
+          "weight": 20
+        }
+      ],
+      "baseline": "1813cb6bffa2cc3c1b29146c53c77d802c327d05f04c8444d2cd5bd38fb9bf24"
+    },
+    {
+      "id": 67,
+      "title": "项目结构梳理",
+      "level": 18,
+      "order": 1,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "结构说明清晰完整",
+          "weight": 50
+        },
+        {
+          "criteria": "数据流向图正确",
+          "weight": 50
+        }
+      ],
+      "baseline": "574574bf8703abcf41ba6105a5e29bf1e3f4c8e98927cd18f33da8f81d8c5b03"
+    },
+    {
+      "id": 68,
+      "title": "数据库持久化验证",
+      "level": 18,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "数据跨重启保留",
+          "weight": 60
+        },
+        {
+          "criteria": "数据库可视化验证",
+          "weight": 40
+        }
+      ],
+      "baseline": "ba85cc6bae5efc32501e92b53d9f7db8bfad637a28c2da54d2d7ef1d20a9a589"
+    },
+    {
+      "id": 69,
+      "title": "提交前后端分离作品",
+      "level": 18,
+      "order": 3,
+      "xp": 30,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "前后端代码完整",
+          "weight": 40
+        },
+        {
+          "criteria": "运行说明可照做",
+          "weight": 30
+        },
+        {
+          "criteria": "对比心得有深度",
+          "weight": 30
+        }
+      ],
+      "baseline": "bbd6e3144c28cf854d500ce353474122e558172dbd63b637d93e3ab5981055e1"
+    },
+    {
+      "id": 70,
+      "title": "创建用户表",
+      "level": 19,
+      "order": 1,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "用户表结构正确",
+          "weight": 50
+        },
+        {
+          "criteria": "实体与仓库类创建",
+          "weight": 50
+        }
+      ],
+      "baseline": "af1b05124eb8f60f21912237c390158a7cf8f4a7314480413f2080477d9475c1"
+    },
+    {
+      "id": 71,
+      "title": "实现注册接口",
+      "level": 19,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "注册接口能保存用户",
+          "weight": 50
+        },
+        {
+          "criteria": "重复用户名被拒绝",
+          "weight": 50
+        }
+      ],
+      "baseline": "6144bd16488e6c1394b0efece93fd91dac433d5b0c6dcba33ffb4802c99977ef"
+    },
+    {
+      "id": 72,
+      "title": "密码加密存储",
+      "level": 19,
+      "order": 3,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "密码以 BCrypt 存储",
+          "weight": 60
+        },
+        {
+          "criteria": "数据库无明文密码",
+          "weight": 40
+        }
+      ],
+      "baseline": "f728bfb99fcedc8d5cd5ddeeed97911f717949b6e0ece0ecfe61cb9a4fd2a88b"
+    },
+    {
+      "id": 73,
+      "title": "注册参数校验",
+      "level": 19,
+      "order": 4,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "长度校验生效",
+          "weight": 50
+        },
+        {
+          "criteria": "错误提示明确",
+          "weight": 50
+        }
+      ],
+      "baseline": "6024d79824f315ddac5ea88b824104c9d8ae6ee06b371f7a234a21d9cf6f4f92"
+    },
+    {
+      "id": 74,
+      "title": "引入 JWT 依赖",
+      "level": 20,
+      "order": 1,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "依赖与配置添加完成",
+          "weight": 60
+        },
+        {
+          "criteria": "应用启动无报错",
+          "weight": 40
+        }
+      ],
+      "baseline": "6fbc7904ced0cdaa834ab01f74bb5729447f828c23463f5e04e742d75a81c487"
+    },
+    {
+      "id": 75,
+      "title": "实现登录接口",
+      "level": 20,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "登录成功返回 token",
+          "weight": 60
+        },
+        {
+          "criteria": "错误密码被拒绝",
+          "weight": 40
+        }
+      ],
+      "baseline": "57c1e9643eae8069e3368d39722a2e76eced73dc21452413e4c7419bae482041"
+    },
+    {
+      "id": 76,
+      "title": "理解 JWT 结构",
+      "level": 20,
+      "order": 3,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "能解析 token 三段结构",
+          "weight": 40
+        },
+        {
+          "criteria": "三个问题回答准确",
+          "weight": 60
+        }
+      ],
+      "baseline": "9f4b1ab6a263563b01d7f591073b0320c7398bc47b63c2bea90fb09a9d06a4b1"
+    },
+    {
+      "id": 77,
+      "title": "登录接口异常测试",
+      "level": 20,
+      "order": 4,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "四种情况均有合理响应",
+          "weight": 60
+        },
+        {
+          "criteria": "无 500 崩溃",
+          "weight": 40
+        }
+      ],
+      "baseline": "36142d62b4e775723363985b001d2640cd2fd2362a57e66dfac3ae123ba5ba08"
+    },
+    {
+      "id": 78,
+      "title": "编写 JWT 校验过滤器",
+      "level": 21,
+      "order": 1,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "过滤器逻辑完整",
+          "weight": 50
+        },
+        {
+          "criteria": "过滤器已生效",
+          "weight": 50
+        }
+      ],
+      "baseline": "bf684fb0251d997a84c167541d31afd804f4ac9be28b4474cb2afbb514a17491"
+    },
+    {
+      "id": 79,
+      "title": "保护需要登录的接口",
+      "level": 21,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "无 token 返回 401",
+          "weight": 50
+        },
+        {
+          "criteria": "有效 token 正常访问",
+          "weight": 50
+        }
+      ],
+      "baseline": "a782b17bdb48694c8d9b11f3d65712c9050af90867be6297144f02f5e41e92ef"
+    },
+    {
+      "id": 80,
+      "title": "处理无效与过期 token",
+      "level": 21,
+      "order": 3,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "篡改 token 被拒绝",
+          "weight": 40
+        },
+        {
+          "criteria": "过期 token 被拒绝",
+          "weight": 30
+        },
+        {
+          "criteria": "伪造 token 被拒绝",
+          "weight": 30
+        }
+      ],
+      "baseline": "4788cc331e321bd048f5b552bdbb79ed201c79b1ad8658d1019b1aa35d1c400e"
+    },
+    {
+      "id": 81,
+      "title": "从 token 获取当前用户",
+      "level": 21,
+      "order": 4,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "能正确获取当前用户 id",
+          "weight": 60
+        },
+        {
+          "criteria": "任务接口使用用户信息",
+          "weight": 40
+        }
+      ],
+      "baseline": "45657283095d153e7a55dcf956571b0b981815c749edcded977c40fdf253c296"
+    },
+    {
+      "id": 82,
+      "title": "任务表增加用户字段",
+      "level": 22,
+      "order": 1,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "表结构新增字段",
+          "weight": 40
+        },
+        {
+          "criteria": "创建任务记录用户",
+          "weight": 60
+        }
+      ],
+      "baseline": "0a26854c0250594ab9cb01fae2c0b9010cec369fea76c95ac9c3b61f219a30df"
+    },
+    {
+      "id": 83,
+      "title": "只查询自己的任务",
+      "level": 22,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "列表只含自己的任务",
+          "weight": 60
+        },
+        {
+          "criteria": "双账号互不可见",
+          "weight": 40
+        }
+      ],
+      "baseline": "db4fb77398b30271b3b0eeb71c2c5ceb594d99afb01f08ba6c31238b33ecb94e"
+    },
+    {
+      "id": 84,
+      "title": "禁止修改他人任务",
+      "level": 22,
+      "order": 3,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "越权修改被拒绝",
+          "weight": 60
+        },
+        {
+          "criteria": "自己任务操作正常",
+          "weight": 40
+        }
+      ],
+      "baseline": "f6ff38ebec4ab2b07c7edd212fb32095f837802d06a7a975dce6b6abafa33310"
+    },
+    {
+      "id": 85,
+      "title": "数据隔离安全测试",
+      "level": 22,
+      "order": 4,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "隔离场景全部通过",
+          "weight": 60
+        },
+        {
+          "criteria": "测试报告完整",
+          "weight": 40
+        }
+      ],
+      "baseline": "0dd0f0c1fe93d9d5067eb4ad1fbb6d56c22ed425a765ee76d1c9e2888ef2ddad"
+    },
+    {
+      "id": 159,
+      "title": "数据库外键与级联约束",
+      "level": 22,
+      "order": 5,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "外键约束创建成功",
+          "weight": 40
+        },
+        {
+          "criteria": "约束与级联验证通过",
+          "weight": 40
+        },
+        {
+          "criteria": "职责理解说明清晰",
+          "weight": 20
+        }
+      ],
+      "baseline": "14454634c8fb2f8aca893992351c0d1293cfd1957fb19a136bd53b1c2017c6c0"
+    },
+    {
+      "id": 86,
+      "title": "面向对象三要素练习",
+      "level": 23,
+      "order": 1,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "类定义完整",
+          "weight": 50
+        },
+        {
+          "criteria": "三要素解释清楚",
+          "weight": 50
+        }
+      ],
+      "baseline": "54d74dc6f1de183b053de9319aafab275393bee543b310a70583642a4887a388"
+    },
+    {
+      "id": 87,
+      "title": "集合类练习",
+      "level": 23,
+      "order": 2,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "两种集合操作正确",
+          "weight": 60
+        },
+        {
+          "criteria": "区别解释准确",
+          "weight": 40
+        }
+      ],
+      "baseline": "fe1a63d4559e37bc7a77d6986b7b8482b678d20c7ff810e23f25207f00a28c0f"
+    },
+    {
+      "id": 88,
+      "title": "异常处理练习",
+      "level": 23,
+      "order": 3,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "自定义异常定义正确",
+          "weight": 40
+        },
+        {
+          "criteria": "try-catch 捕获成功",
+          "weight": 40
+        },
+        {
+          "criteria": "finally 作用说明",
+          "weight": 20
+        }
+      ],
+      "baseline": "fe903b0d9b6c4c9c80f35fdf3823917966afc212d461d107eee75f12c92aa859"
+    },
+    {
+      "id": 89,
+      "title": "注解与依赖注入理解",
+      "level": 23,
+      "order": 4,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "注解作用解释准确",
+          "weight": 50
+        },
+        {
+          "criteria": "IoC/DI 理解到位",
+          "weight": 50
+        }
+      ],
+      "baseline": "e7e6a7caac75ae0edd90f62117f0fc2a56626c7da62dfa9cd4f3042259a92078"
+    },
+    {
+      "id": 90,
+      "title": "Stream 与 Lambda 练习",
+      "level": 23,
+      "order": 5,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "四个练习全部完成",
+          "weight": 60
+        },
+        {
+          "criteria": "代码可运行无报错",
+          "weight": 40
+        }
+      ],
+      "baseline": "2abb5ee91ec0b0a86f7ead2acaa7c2def13f773466e875ec2aa27d27116094c7"
+    },
+    {
+      "id": 91,
+      "title": "前端接入登录注册",
+      "level": 24,
+      "order": 1,
+      "xp": 25,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "登录注册页面可用",
+          "weight": 50
+        },
+        {
+          "criteria": "token 存储与携带正确",
+          "weight": 50
+        }
+      ],
+      "baseline": "9318c587c6b3c5b983b9085083ee254f7d5cee60321694bde190bb59ce827731"
+    },
+    {
+      "id": 92,
+      "title": "认证与隔离回归测试",
+      "level": 24,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "全流程测试通过",
+          "weight": 60
+        },
+        {
+          "criteria": "数据隔离始终生效",
+          "weight": 40
+        }
+      ],
+      "baseline": "1d0c5e766a344d79feb6e095b16dce6355ae87a5135d31f58c639f26e38342d4"
+    },
+    {
+      "id": 93,
+      "title": "提交带认证的系统",
+      "level": 24,
+      "order": 3,
+      "xp": 30,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "代码与脚本完整",
+          "weight": 40
+        },
+        {
+          "criteria": "演示截图齐全",
+          "weight": 30
+        },
+        {
+          "criteria": "说明回答有深度",
+          "weight": 30
+        }
+      ],
+      "baseline": "e1c602468d01fde21a3d765a5825c0df5d991c819602cf36abf70d09b1e489bb"
+    },
+    {
+      "id": 94,
+      "title": "定义统一响应类",
+      "level": 25,
+      "order": 1,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "统一响应类定义完整",
+          "weight": 50
+        },
+        {
+          "criteria": "接口全部改造完成",
+          "weight": 50
+        }
+      ],
+      "baseline": "054607e94f3e1ff35f9b432a9aa972ab72e8297c9e6e1d95f5654ce32026d314"
+    },
+    {
+      "id": 95,
+      "title": "统一错误响应",
+      "level": 25,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "错误响应格式统一",
+          "weight": 60
+        },
+        {
+          "criteria": "错误码语义清晰",
+          "weight": 40
+        }
+      ],
+      "baseline": "7f82af0496b0e8a23c21c0856377d5e03ab2b70f245746e475a48ccb1df47bc3"
+    },
+    {
+      "id": 96,
+      "title": "前端适配统一响应",
+      "level": 25,
+      "order": 3,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "响应拦截器实现",
+          "weight": 50
+        },
+        {
+          "criteria": "页面调用全部适配",
+          "weight": 50
+        }
+      ],
+      "baseline": "9f9e1e16e98fd9463a2b701ab6a68940175e0e18439fcb0ef55d5b8b53ac882e"
+    },
+    {
+      "id": 97,
+      "title": "整理接口清单",
+      "level": 25,
+      "order": 4,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "接口清单完整无遗漏",
+          "weight": 60
+        },
+        {
+          "criteria": "格式描述准确",
+          "weight": 40
+        }
+      ],
+      "baseline": "44eaba156bfd841a22e041b973700a5cfe25ba4bd98d91551cc685393c14e46f"
+    },
+    {
+      "id": 98,
+      "title": "自定义业务异常",
+      "level": 26,
+      "order": 1,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "自定义异常类定义",
+          "weight": 40
+        },
+        {
+          "criteria": "业务异常全部替换完成",
+          "weight": 60
+        }
+      ],
+      "baseline": "6a8dbd64d5dfa448ee720fbc3a3c15821d257e764aa0ceff3b196aa1a873bff8"
+    },
+    {
+      "id": 99,
+      "title": "编写全局异常处理器",
+      "level": 26,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "三种异常处理齐全",
+          "weight": 60
+        },
+        {
+          "criteria": "兜底不泄露内部信息",
+          "weight": 40
+        }
+      ],
+      "baseline": "ca3dc86dee7b230c7abac992f6f225a05e1468b45008c6c0773a1ce34dbc8dae"
+    },
+    {
+      "id": 100,
+      "title": "前端展示友好错误",
+      "level": 26,
+      "order": 3,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "三类错误提示正确",
+          "weight": 60
+        },
+        {
+          "criteria": "401 跳转登录",
+          "weight": 40
+        }
+      ],
+      "baseline": "1fd4e4f4cca4a2368a0749e08a58906437e45f9d68135249334289ae73eb3dcf"
+    },
+    {
+      "id": 101,
+      "title": "错误日志与排查演练",
+      "level": 26,
+      "order": 4,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "错误日志记录完整",
+          "weight": 50
+        },
+        {
+          "criteria": "能通过日志定位问题",
+          "weight": 50
+        }
+      ],
+      "baseline": "7a718bb137cfb6f18003f3aff49bf8d81e2d1e874c17f70659736fa389fb4f4d"
+    },
+    {
+      "id": 102,
+      "title": "初始化仓库并首次提交",
+      "level": 27,
+      "order": 1,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "仓库初始化成功",
+          "weight": 40
+        },
+        {
+          "criteria": ".gitignore 配置正确",
+          "weight": 30
+        },
+        {
+          "criteria": "首次提交完成",
+          "weight": 30
+        }
+      ],
+      "baseline": "3e6e70b207f1a4a0c4ed952a825bee2cb382da434bd5258ee1307fb914ad63c5"
+    },
+    {
+      "id": 103,
+      "title": "分支开发新功能",
+      "level": 27,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "分支创建与切换正确",
+          "weight": 40
+        },
+        {
+          "criteria": "功能只在分支上开发",
+          "weight": 30
+        },
+        {
+          "criteria": "两个分支代码可区分",
+          "weight": 30
+        }
+      ],
+      "baseline": "c90e7e45cb23e3b7a5ebe77e9d1f668be913bd268d44d1604e38f3f3dd1811ec"
+    },
+    {
+      "id": 104,
+      "title": "合并分支并解决冲突",
+      "level": 27,
+      "order": 3,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "合并成功无遗漏功能",
+          "weight": 50
+        },
+        {
+          "criteria": "冲突处理正确",
+          "weight": 30
+        },
+        {
+          "criteria": "合并图形记录可见",
+          "weight": 20
+        }
+      ],
+      "baseline": "eff63fab3f0308334ef014fecc5ca2ee14aa1f75ec7f370c9ab78331e14bea3c"
+    },
+    {
+      "id": 105,
+      "title": "回滚到历史版本",
+      "level": 27,
+      "order": 4,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "标签创建成功",
+          "weight": 30
+        },
+        {
+          "criteria": "回滚操作成功",
+          "weight": 40
+        },
+        {
+          "criteria": "reset/revert 区别说明准确",
+          "weight": 30
+        }
+      ],
+      "baseline": "05eac0b25bd7cd3e26a61411118b85b025e8359c29e99a80c2bc90ace02e1955"
+    },
+    {
+      "id": 160,
+      "title": "推送到远程仓库（GitHub/Gitee）",
+      "level": 27,
+      "order": 5,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "远程仓库已创建",
+          "weight": 30
+        },
+        {
+          "criteria": "代码推送成功可见",
+          "weight": 50
+        },
+        {
+          "criteria": "clone 验证与概念回答",
+          "weight": 20
+        }
+      ],
+      "baseline": "857baced9f4ae9d1a8cae0f6c4a54378228645b0bc4559e5d4b75301a3f90152"
+    },
+    {
+      "id": 106,
+      "title": "使用校验注解",
+      "level": 28,
+      "order": 1,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "依赖添加",
+          "weight": 30
+        },
+        {
+          "criteria": "校验注解使用正确",
+          "weight": 40
+        },
+        {
+          "criteria": "@Valid 生效",
+          "weight": 30
+        }
+      ],
+      "baseline": "952a28b2fc1f006a69d910da26e5a6ee812a256766c94d674cd5f042beb862fe"
+    },
+    {
+      "id": 107,
+      "title": "自定义校验消息",
+      "level": 28,
+      "order": 2,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "中文提示生效",
+          "weight": 50
+        },
+        {
+          "criteria": "错误信息能返回前端",
+          "weight": 50
+        }
+      ],
+      "baseline": "da4c17eb1984b7b1311f1e62caa5387c676a6c50bee8a8b8dc656b21315bbb1d"
+    },
+    {
+      "id": 108,
+      "title": "校验回归测试",
+      "level": 28,
+      "order": 3,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "四种场景全部拦截",
+          "weight": 60
+        },
+        {
+          "criteria": "提示清晰格式统一",
+          "weight": 40
+        }
+      ],
+      "baseline": "149a1207e83500f6be8bd2d10ca74836a4d0aa5b00a516e50762288e278687cc"
+    },
+    {
+      "id": 161,
+      "title": "用 JUnit 写单元测试",
+      "level": 28,
+      "order": 4,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "测试类正确可运行",
+          "weight": 40
+        },
+        {
+          "criteria": "覆盖正常与异常场景",
+          "weight": 40
+        },
+        {
+          "criteria": "回归演示与概念说明",
+          "weight": 20
+        }
+      ],
+      "baseline": "e3d4de5682c80456cc3a33c9f1c27d39b9a21c99c2bbd90c8dfd5725587ceb5b"
+    },
+    {
+      "id": 109,
+      "title": "引入 Swagger 依赖",
+      "level": 29,
+      "order": 1,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "依赖添加正确",
+          "weight": 50
+        },
+        {
+          "criteria": "Swagger UI 能访问",
+          "weight": 50
+        }
+      ],
+      "baseline": "541c4207daa96dc71b5edb3d25914f729d63cab0de32f511a01963b7ab27d708"
+    },
+    {
+      "id": 110,
+      "title": "为接口添加文档注解",
+      "level": 29,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "接口描述齐全",
+          "weight": 50
+        },
+        {
+          "criteria": "UI 正确显示描述",
+          "weight": 50
+        }
+      ],
+      "baseline": "3ff0ca5ddc633831f608200dbcd55fe5c85d77c1f0ee777346e6fe61c7c5df82"
+    },
+    {
+      "id": 111,
+      "title": "用 Swagger UI 调试接口",
+      "level": 29,
+      "order": 3,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "能完成带认证调试",
+          "weight": 60
+        },
+        {
+          "criteria": "调试过程记录完整",
+          "weight": 40
+        }
+      ],
+      "baseline": "a7e9680ab3ce9797f5c9d439815bdc40cfa1ba14233869546da9fe07383de477"
+    },
+    {
+      "id": 112,
+      "title": "代码规范复查",
+      "level": 30,
+      "order": 1,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "命名规范统一",
+          "weight": 40
+        },
+        {
+          "criteria": "无用代码清理干净",
+          "weight": 30
+        },
+        {
+          "criteria": "修正清单完整",
+          "weight": 30
+        }
+      ],
+      "baseline": "1f2470ec4aeb2ed7973de05125d06a4cb61c84f7c4d50301d33f94bebb8a69c7"
+    },
+    {
+      "id": 113,
+      "title": "接口与异常回归测试",
+      "level": 30,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "全部接口测试通过",
+          "weight": 60
+        },
+        {
+          "criteria": "回归报告完整",
+          "weight": 40
+        }
+      ],
+      "baseline": "ef89001114c77175949045fe7ef32fbfd8c27e662d2f7cec12785fa4452ea2ed"
+    },
+    {
+      "id": 114,
+      "title": "提交规范化系统",
+      "level": 30,
+      "order": 3,
+      "xp": 30,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "仓库与文档齐全",
+          "weight": 40
+        },
+        {
+          "criteria": "测试报告完整",
+          "weight": 30
+        },
+        {
+          "criteria": "总结有深度",
+          "weight": 30
+        }
+      ],
+      "baseline": "6fd0d0f326f8da8fe6f47dae0db4c142b390c124d532f40f97c06a03b0943fd3"
+    },
+    {
+      "id": 162,
+      "title": "多环境配置（dev/prod）",
+      "level": 30,
+      "order": 4,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "多环境配置文件正确",
+          "weight": 40
+        },
+        {
+          "criteria": "切换验证成功",
+          "weight": 40
+        },
+        {
+          "criteria": "环境变量与概念说明",
+          "weight": 20
+        }
+      ],
+      "baseline": "be161e8e5da3c10cad9cfda560f67a9576a18399952d2a39e43200cd05c474de"
+    },
+    {
+      "id": 115,
+      "title": "构造大数据量测试数据",
+      "level": 31,
+      "order": 1,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "10 万条数据插入成功",
+          "weight": 60
+        },
+        {
+          "criteria": "数量验证无误",
+          "weight": 40
+        }
+      ],
+      "baseline": "f60b719f13fb7b0f3350177c25c9bd44d97cd8ee54e02a5fcb1804a98cb4ce55"
+    },
+    {
+      "id": 116,
+      "title": "用 EXPLAIN 分析慢查询",
+      "level": 31,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "EXPLAIN 能正确执行",
+          "weight": 50
+        },
+        {
+          "criteria": "能解读执行计划含义",
+          "weight": 50
+        }
+      ],
+      "baseline": "7218d21360c79910dd1f28f1cdc181535620ca427305519a6a358729669f9592"
+    },
+    {
+      "id": 117,
+      "title": "定位查询慢的原因",
+      "level": 31,
+      "order": 3,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "定位到慢查询",
+          "weight": 50
+        },
+        {
+          "criteria": "原因分析合理",
+          "weight": 50
+        }
+      ],
+      "baseline": "9b71ddc108bdc227430588b8e4bee72d027abf645351c3a5e47e3d1a215bdc38"
+    },
+    {
+      "id": 118,
+      "title": "创建索引",
+      "level": 32,
+      "order": 1,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "索引创建成功",
+          "weight": 40
+        },
+        {
+          "criteria": "执行计划明显改善",
+          "weight": 60
+        }
+      ],
+      "baseline": "3ca772977ad09fe7f2ebc9730f976d7dd333ecb427cb195fea6781b90646e0f2"
+    },
+    {
+      "id": 119,
+      "title": "对比索引前后速度",
+      "level": 32,
+      "order": 2,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "前后耗时数据真实",
+          "weight": 60
+        },
+        {
+          "criteria": "对比分析清晰",
+          "weight": 40
+        }
+      ],
+      "baseline": "f8c2870f51426e98073bb4e6f241dbe69113c52b295ee5aa2338f7bbe87035d3"
+    },
+    {
+      "id": 120,
+      "title": "理解复合索引",
+      "level": 32,
+      "order": 3,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "复合索引创建并生效",
+          "weight": 50
+        },
+        {
+          "criteria": "最左前缀解释准确",
+          "weight": 50
+        }
+      ],
+      "baseline": "177a6fb793c48080c437efc70cebf64db311f4c659e6a9a1fb4dc80e5e863d8f"
+    },
+    {
+      "id": 121,
+      "title": "安装并启动 Redis",
+      "level": 33,
+      "order": 1,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "Redis 服务运行",
+          "weight": 50
+        },
+        {
+          "criteria": "基本命令测试通过",
+          "weight": 50
+        }
+      ],
+      "baseline": "e011c0ea2b1d2a96564ccf257d5b9cde1367674e73f2dbb5dfa4f30b0e2dde9a"
+    },
+    {
+      "id": 122,
+      "title": "Spring Boot 接入 Redis",
+      "level": 33,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "依赖与配置完成",
+          "weight": 40
+        },
+        {
+          "criteria": "读写 Redis 成功",
+          "weight": 60
+        }
+      ],
+      "baseline": "081624460423648633c0cd44c3725c32b7f4dbc65541f39692fcf24f36fcbf6c"
+    },
+    {
+      "id": 123,
+      "title": "缓存任务列表",
+      "level": 33,
+      "order": 3,
+      "xp": 25,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "缓存读写逻辑正确",
+          "weight": 60
+        },
+        {
+          "criteria": "命中率与耗时对比可见",
+          "weight": 40
+        }
+      ],
+      "baseline": "554454ba7ab43fe9a4a79ee9af44cab48b00ba514b1de8a8f07a5f43d434d6ba"
+    },
+    {
+      "id": 124,
+      "title": "缓存失效策略",
+      "level": 33,
+      "order": 4,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "写操作同步清缓存",
+          "weight": 60
+        },
+        {
+          "criteria": "一致性验证通过",
+          "weight": 40
+        }
+      ],
+      "baseline": "315e7a7d2b8e6b9c8501d9ba8d0c35538fef0bf98f7a816fe9210be86bf9b569"
+    },
+    {
+      "id": 163,
+      "title": "认识缓存穿透、击穿与雪崩",
+      "level": 33,
+      "order": 5,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "三概念解释准确",
+          "weight": 40
+        },
+        {
+          "criteria": "流程图标注问题环节",
+          "weight": 40
+        },
+        {
+          "criteria": "结合自身缓存分析",
+          "weight": 20
+        }
+      ],
+      "baseline": "196eb82d87c474ed2b08815ce7802bd11133771adecdd38d94b82ae7c7f21be4"
+    },
+    {
+      "id": 125,
+      "title": "理解同步与异步",
+      "level": 34,
+      "order": 1,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "概念解释准确",
+          "weight": 50
+        },
+        {
+          "criteria": "生活例子贴切",
+          "weight": 50
+        }
+      ],
+      "baseline": "a908cc83eec58f42a7e8b4e8f085d012bc58ef17f4291f490425800ca1b1956e"
+    },
+    {
+      "id": 126,
+      "title": "使用 @Async 异步方法",
+      "level": 34,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "@Async 配置正确",
+          "weight": 50
+        },
+        {
+          "criteria": "异步效果验证成功",
+          "weight": 50
+        }
+      ],
+      "baseline": "5b288e174ca6aba9fd5a635dacb78ab4d09b685b1550d75289f6cf69e2198f5a"
+    },
+    {
+      "id": 127,
+      "title": "批量导入异步化",
+      "level": 34,
+      "order": 3,
+      "xp": 25,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "接口立即返回",
+          "weight": 40
+        },
+        {
+          "criteria": "后台异步完成导入",
+          "weight": 40
+        },
+        {
+          "criteria": "结果可查询",
+          "weight": 20
+        }
+      ],
+      "baseline": "7436921c818d8ebde2c1e86719fd79cb1a88e9e5ce2b1cd4a03b2e714c1ce63e"
+    },
+    {
+      "id": 128,
+      "title": "异步异常处理",
+      "level": 34,
+      "order": 4,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "异常处理器配置",
+          "weight": 50
+        },
+        {
+          "criteria": "主流程不受影响",
+          "weight": 50
+        }
+      ],
+      "baseline": "e82e46a730b84f58e93bcac414d5f13402cc31b99389972a39113a70caeb741d"
+    },
+    {
+      "id": 129,
+      "title": "引入 Actuator",
+      "level": 35,
+      "order": 1,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "依赖添加与端点暴露",
+          "weight": 50
+        },
+        {
+          "criteria": "health 端点正常",
+          "weight": 50
+        }
+      ],
+      "baseline": "874ca903acb9984998b43b41203c72603ac38c35bb3b6e1beb6388f3c1574fe4"
+    },
+    {
+      "id": 130,
+      "title": "查看运行指标",
+      "level": 35,
+      "order": 2,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "能查看关键指标",
+          "weight": 60
+        },
+        {
+          "criteria": "指标解读准确",
+          "weight": 40
+        }
+      ],
+      "baseline": "51cf24e56dc5a070cb120123c2fac7cfef733c1f7cab0be68a97f422a429cb4f"
+    },
+    {
+      "id": 131,
+      "title": "结合指标分析性能",
+      "level": 35,
+      "order": 3,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "压测执行成功",
+          "weight": 40
+        },
+        {
+          "criteria": "指标数据分析合理",
+          "weight": 60
+        }
+      ],
+      "baseline": "a7d5c5b55fd314b42ec32fe8c4d4a40cc565c0c2d8bf5b2b31ed94e8527fe901"
+    },
+    {
+      "id": 132,
+      "title": "性能优化回顾",
+      "level": 36,
+      "order": 1,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "三类优化总结完整",
+          "weight": 60
+        },
+        {
+          "criteria": "量化数据真实",
+          "weight": 40
+        }
+      ],
+      "baseline": "f405db7bab9e6c1b6704b14c1bc29186658b62b3221739edd0b44e2960739f20"
+    },
+    {
+      "id": 133,
+      "title": "高并发场景验证",
+      "level": 36,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "三个场景全部达标",
+          "weight": 60
+        },
+        {
+          "criteria": "验证记录完整",
+          "weight": 40
+        }
+      ],
+      "baseline": "776765a4f5b2f71142d9ca4ee3ecf966940507288ef6667a4af13b07dfe57f0f"
+    },
+    {
+      "id": 134,
+      "title": "提交高性能系统",
+      "level": 36,
+      "order": 3,
+      "xp": 30,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "代码与配置完整",
+          "weight": 40
+        },
+        {
+          "criteria": "性能报告有对比数据",
+          "weight": 30
+        },
+        {
+          "criteria": "心得有真实体会",
+          "weight": 30
+        }
+      ],
+      "baseline": "185275f4c7d3b1f66a6de0d9127b9db7e656ec783e952a07b931abe63ef8632f"
+    },
+    {
+      "id": 135,
+      "title": "准备练习服务器并登录",
+      "level": 37,
+      "order": 1,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "说明练习主机的来源与访问方式",
+          "weight": 40
+        },
+        {
+          "criteria": "用普通账号登录并核对主机",
+          "weight": 30
+        },
+        {
+          "criteria": "记录系统版本与可用空间",
+          "weight": 30
+        }
+      ],
+      "baseline": "e7a145a3648cfde0c0f6386e4891821690562744174f3dcd5972e5ccb0f0ccfe",
+      "sourceTitle": "购买并登录云服务器"
+    },
+    {
+      "id": 136,
+      "title": "Linux 常用命令",
+      "level": 37,
+      "order": 2,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "六条命令全部执行",
+          "weight": 60
+        },
+        {
+          "criteria": "操作记录完整",
+          "weight": 40
+        }
+      ],
+      "baseline": "73b76ca9aff6f983c65b22c63f198683c8ca7e9f878917df2ffa66287a56aef0"
+    },
+    {
+      "id": 137,
+      "title": "为练习主机设置访问规则",
+      "level": 37,
+      "order": 3,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "在练习机或云安全组记录有效访问规则",
+          "weight": 50
+        },
+        {
+          "criteria": "能解释开放范围及端口用途",
+          "weight": 50
+        }
+      ],
+      "baseline": "637ce7fcac99f827d2fad70d30ae160276b0f9c879e78e366de3630b19231d16",
+      "sourceTitle": "配置安全组与防火墙"
+    },
+    {
+      "id": 138,
+      "title": "上传文件到服务器",
+      "level": 37,
+      "order": 4,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "文件上传成功",
+          "weight": 60
+        },
+        {
+          "criteria": "服务器验证内容一致",
+          "weight": 40
+        }
+      ],
+      "baseline": "9dfd585d0702c8a1ccd0ba151e22bc0cfa9e65caffc013b5c000ffe84168429d"
+    },
+    {
+      "id": 164,
+      "title": "SSH 密钥免密登录",
+      "level": 37,
+      "order": 5,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "密钥对生成正确",
+          "weight": 30
+        },
+        {
+          "criteria": "免密登录成功",
+          "weight": 50
+        },
+        {
+          "criteria": "安全说明清晰",
+          "weight": 20
+        }
+      ],
+      "baseline": "277186779127fa5ec7a8cb3380555cd69c806eebfc636453a1ced09145e2d8c1"
+    },
+    {
+      "id": 139,
+      "title": "构建前端产物",
+      "level": 38,
+      "order": 1,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "构建成功无报错",
+          "weight": 50
+        },
+        {
+          "criteria": "产物上传完成",
+          "weight": 50
+        }
+      ],
+      "baseline": "5b9a81ad0e2e8be6d3c0e1a69580a4cd2827708cf01885314445502b3a1d80e4"
+    },
+    {
+      "id": 140,
+      "title": "安装配置 Nginx",
+      "level": 38,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "Nginx 安装成功",
+          "weight": 30
+        },
+        {
+          "criteria": "配置指向静态目录",
+          "weight": 40
+        },
+        {
+          "criteria": "服务正常启动",
+          "weight": 30
+        }
+      ],
+      "baseline": "a7b0473ce8cba1d4ab3b556b2a113b54f7129df20b3e35befd8ce56b601f0035"
+    },
+    {
+      "id": 141,
+      "title": "从另一台设备访问页面",
+      "level": 38,
+      "order": 3,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "可从第二个浏览器或设备访问",
+          "weight": 40
+        },
+        {
+          "criteria": "展示请求的地址与状态",
+          "weight": 30
+        },
+        {
+          "criteria": "说明哪些地址只在局域网可用",
+          "weight": 30
+        }
+      ],
+      "baseline": "70fd44ed29d92d96208449d656c9ad214ddf2c0a690848df05c5443eb8bd082b",
+      "sourceTitle": "通过公网 IP 访问页面"
+    },
+    {
+      "id": 142,
+      "title": "服务器安装 JDK 与数据库",
+      "level": 39,
+      "order": 1,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "JDK 安装验证",
+          "weight": 40
+        },
+        {
+          "criteria": "数据库就绪且配置正确",
+          "weight": 60
+        }
+      ],
+      "baseline": "749cb50bb6287cd2d4144b40e6987182e917611c53d737504ab4341d251d8bf0"
+    },
+    {
+      "id": 143,
+      "title": "打包后端 jar",
+      "level": 39,
+      "order": 2,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "jar 打包成功",
+          "weight": 60
+        },
+        {
+          "criteria": "本地运行验证通过",
+          "weight": 40
+        }
+      ],
+      "baseline": "66370b91296d221a4b219499c8c4af7bbc5d572edcfb270d90982bbf6d0516be"
+    },
+    {
+      "id": 144,
+      "title": "上传并运行后端",
+      "level": 39,
+      "order": 3,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "jar 上传成功",
+          "weight": 30
+        },
+        {
+          "criteria": "服务器上运行成功",
+          "weight": 50
+        },
+        {
+          "criteria": "接口访问验证通过",
+          "weight": 20
+        }
+      ],
+      "baseline": "f9f34ca029a9f77eeeb1e0fad18117da9ad2a40626f3c27a58a8b8991955c106"
+    },
+    {
+      "id": 145,
+      "title": "用 systemd 守护进程",
+      "level": 39,
+      "order": 4,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "服务文件正确",
+          "weight": 40
+        },
+        {
+          "criteria": "开机自启生效",
+          "weight": 30
+        },
+        {
+          "criteria": "自动重启验证成功",
+          "weight": 30
+        }
+      ],
+      "baseline": "e07273ce5c1d9b6e8ff3f62bcca45f6b88ef79b921c246dde6021922f7aeff27"
+    },
+    {
+      "id": 146,
+      "title": "配置 /api 反向代理",
+      "level": 40,
+      "order": 1,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "代理路径与后端路由匹配",
+          "weight": 50
+        },
+        {
+          "criteria": "能从同一入口联通练习接口",
+          "weight": 50
+        }
+      ],
+      "baseline": "346ecac4e705f2886460a7be9789aea2e9eeb967cb3d1c02732b24c8dea7dfef",
+      "sourceTitle": "配置 /api 反向代理"
+    },
+    {
+      "id": 147,
+      "title": "解决跨域与前端联调",
+      "level": 40,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "完整流程可用",
+          "weight": 60
+        },
+        {
+          "criteria": "问题排查记录清楚",
+          "weight": 40
+        }
+      ],
+      "baseline": "042eebf7ddfb3add25f18c98a075b30d5099a936d2c9cfb291d23c348ab19bdf"
+    },
+    {
+      "id": 148,
+      "title": "从用户入口验证完整流程",
+      "level": 40,
+      "order": 3,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "从同一入口完成登录和增改查",
+          "weight": 40
+        },
+        {
+          "criteria": "展示刷新后的结果",
+          "weight": 30
+        },
+        {
+          "criteria": "能通过日志定位一次失败请求",
+          "weight": 30
+        }
+      ],
+      "baseline": "3ed0d25e56e4d03b6c5395a88b120edef8fd1c7b24472d1678d4ff7ab85c805d",
+      "sourceTitle": "公网访问完整验收"
+    },
+    {
+      "id": 149,
+      "title": "编写 Dockerfile",
+      "level": 41,
+      "order": 1,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "两个 Dockerfile 正确",
+          "weight": 60
+        },
+        {
+          "criteria": "构建上下文与文件匹配",
+          "weight": 40
+        }
+      ],
+      "baseline": "8a7ad456b07e5a7ab928fb00d75d93d7605733053c20ab48f3a663542f64c18f"
+    },
+    {
+      "id": 150,
+      "title": "编写 docker-compose",
+      "level": 41,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "三个服务定义完整",
+          "weight": 60
+        },
+        {
+          "criteria": "服务间依赖与网络正确",
+          "weight": 40
+        }
+      ],
+      "baseline": "df5b1d26e336e42543ddb938f5337ff0d19f5279961ed6e00c9324454ac1b22f"
+    },
+    {
+      "id": 151,
+      "title": "一键启动全栈",
+      "level": 41,
+      "order": 3,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "应用、数据库和前端容器健康运行",
+          "weight": 50
+        },
+        {
+          "criteria": "可从约定的练习地址完成一次操作",
+          "weight": 50
+        }
+      ],
+      "baseline": "41a90a94a2ab297a2fca4ad1308a2ecf28279cfe317ba4106ab0f2480a88da21",
+      "sourceTitle": "一键启动全栈"
+    },
+    {
+      "id": 152,
+      "title": "容器化知识理解",
+      "level": 41,
+      "order": 4,
+      "xp": 15,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "三个问题回答准确",
+          "weight": 60
+        },
+        {
+          "criteria": "结合实践举例",
+          "weight": 40
+        }
+      ],
+      "baseline": "08054fbd52b5be8286345633f51cb45bfabefa5795b60f1d138dcbacd510a1c9"
+    },
+    {
+      "id": 153,
+      "title": "生产环境安全加固",
+      "level": 42,
+      "order": 1,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "密码与密钥安全",
+          "weight": 40
+        },
+        {
+          "criteria": "端口最小化",
+          "weight": 30
+        },
+        {
+          "criteria": "安全说明完整",
+          "weight": 30
+        }
+      ],
+      "baseline": "37988eeb3fcf06228f819e7d6b6c77ca6af985fa2342ecd8fc92fb4e71c71047"
+    },
+    {
+      "id": 154,
+      "title": "最终验收：从用户入口做完整测试",
+      "level": 42,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "提供其他人可复用的验收步骤",
+          "weight": 40
+        },
+        {
+          "criteria": "记录实际运行结果和边界情况",
+          "weight": 30
+        },
+        {
+          "criteria": "如实说明网络可达范围",
+          "weight": 30
+        }
+      ],
+      "baseline": "05ad37fac8730e8794ca5bd80d5188c3c51e7078e6beb27dceaadd830a6ea9d7",
+      "sourceTitle": "最终验收：公网完整测试"
+    },
+    {
+      "id": 155,
+      "title": "部署答辩：提交可复现的作品",
+      "level": 42,
+      "order": 3,
+      "xp": 30,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "交付作品、入口或本地复现方式",
+          "weight": 40
+        },
+        {
+          "criteria": "验收报告含关键路径与错误示例",
+          "weight": 30
+        },
+        {
+          "criteria": "能解释选择、限制和改进顺序",
+          "weight": 30
+        }
+      ],
+      "baseline": "a0051a2b4666f2573bbd8473f6e232b82b5c099c546a74a89d4456584c75bc00",
+      "sourceTitle": "出师答辩：提交最终作品"
+    },
+    {
+      "id": 168,
+      "title": "写一页需求与验收条件",
+      "level": 43,
+      "order": 1,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "明确使用者及问题",
+          "weight": 50
+        },
+        {
+          "criteria": "给出可检验的成功条件和范围边界",
+          "weight": 50
+        }
+      ]
+    },
+    {
+      "id": 169,
+      "title": "画出数据与接口契约",
+      "level": 43,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "画清实体和约束",
+          "weight": 50
+        },
+        {
+          "criteria": "用请求响应例子说明冲突处理",
+          "weight": 50
+        }
+      ]
+    },
+    {
+      "id": 170,
+      "title": "发起设计评审并记录决策",
+      "level": 43,
+      "order": 3,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "留存评审问题和改动",
+          "weight": 50
+        },
+        {
+          "criteria": "说明放弃的方案和取舍",
+          "weight": 50
+        }
+      ]
+    },
+    {
+      "id": 171,
+      "title": "把关键行为做成自动测试",
+      "level": 44,
+      "order": 1,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "正常与异常路径都能自动执行",
+          "weight": 50
+        },
+        {
+          "criteria": "测试数据独立且可重复",
+          "weight": 50
+        }
+      ]
+    },
+    {
+      "id": 172,
+      "title": "让每个合并请求自动验证",
+      "level": 44,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "提交后自动运行构建与测试",
+          "weight": 50
+        },
+        {
+          "criteria": "流水线不依赖真实服务密码",
+          "weight": 50
+        }
+      ]
+    },
+    {
+      "id": 173,
+      "title": "用失败样例演练代码评审",
+      "level": 44,
+      "order": 3,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "给出一次可控失败和修复记录",
+          "weight": 50
+        },
+        {
+          "criteria": "写出评审意见及响应",
+          "weight": 50
+        }
+      ]
+    },
+    {
+      "id": 174,
+      "title": "设计可回退的字段迁移",
+      "level": 45,
+      "order": 1,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "描述新旧版本兼容窗口",
+          "weight": 50
+        },
+        {
+          "criteria": "证明旧数据可读且回填可重跑",
+          "weight": 50
+        }
+      ]
+    },
+    {
+      "id": 175,
+      "title": "在副本上恢复并核对数据",
+      "level": 45,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "在独立数据库恢复备份",
+          "weight": 50
+        },
+        {
+          "criteria": "比较记录和关键业务结果",
+          "weight": 50
+        }
+      ]
+    },
+    {
+      "id": 176,
+      "title": "用版本切换验证回退路线",
+      "level": 45,
+      "order": 3,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "保留上一版本产物",
+          "weight": 50
+        },
+        {
+          "criteria": "验证回退后的读写和日志",
+          "weight": 50
+        }
+      ]
+    },
+    {
+      "id": 177,
+      "title": "用键盘和手机完成核心流程",
+      "level": 46,
+      "order": 1,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "用键盘完成输入和提交",
+          "weight": 50
+        },
+        {
+          "criteria": "在窄屏与错误状态下确认可操作",
+          "weight": 50
+        }
+      ]
+    },
+    {
+      "id": 178,
+      "title": "为一次服务故障写处置记录",
+      "level": 46,
+      "order": 2,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "给出观测证据与恢复步骤",
+          "weight": 50
+        },
+        {
+          "criteria": "记录影响范围及防止复发的行动",
+          "weight": 50
+        }
+      ]
+    },
+    {
+      "id": 179,
+      "title": "完成独立交接与作品答辩",
+      "level": 46,
+      "order": 3,
+      "xp": 20,
+      "ai": 0,
+      "criteria": [
+        {
+          "criteria": "同伴能从说明启动并验收",
+          "weight": 50
+        },
+        {
+          "criteria": "提交作品证据和取舍复盘",
+          "weight": 50
+        }
+      ]
+    }
+  ]
+}

@@ -14,7 +14,7 @@ try {
   New-Item -ItemType Directory -Force -Path $target, bin | Out-Null
   Copy-Item -Path web/dist/* -Destination $target -Recurse
   $env:GOOS='linux'; $env:GOARCH='amd64'; $env:CGO_ENABLED='0'
-  foreach ($item in @(@('server','skilltree'),@('migrate-postgres','skilltree-migrate'),@('repair-migration','skilltree-repair'),@('backup','skilltree-backup'))) {
+  foreach ($item in @(@('server','skilltree'),@('migrate-postgres','skilltree-migrate'),@('repair-migration','skilltree-repair'),@('backup','skilltree-backup'),@('curriculum','skilltree-curriculum'))) {
     go build -trimpath -o "bin/$($item[1])" "./cmd/$($item[0])"
     if ($LASTEXITCODE) { throw "build failed: $($item[0])" }
   }

@@ -375,6 +375,9 @@ func (a *App) notifyChat(event chatEvent) {
 		}
 	}
 }
+
+type socketVersionKey struct{}
+
 func (a *App) chatWS(w http.ResponseWriter, r *http.Request, user int64) {
 	a.chatMu.Lock()
 	if len(a.chatClients[user]) >= 3 {
@@ -384,9 +387,10 @@ func (a *App) chatWS(w http.ResponseWriter, r *http.Request, user int64) {
 	}
 	ch := make(chan chatEvent, 16)
 	if a.chatClients[user] == nil {
-		a.chatClients[user] = map[chan chatEvent]struct{}{}
+		a.chatClients[user] = map[chan chatEvent]int64{}
 	}
-	a.chatClients[user][ch] = struct{}{}
+	version, _ := r.Context().Value(socketVersionKey{}).(int64)
+	a.chatClients[user][ch] = version
 	a.chatMu.Unlock()
 	defer func() {
 		a.chatMu.Lock()
@@ -396,6 +400,11 @@ func (a *App) chatWS(w http.ResponseWriter, r *http.Request, user int64) {
 		}
 		a.chatMu.Unlock()
 	}()
+	var currentVersion int64
+	if err := a.DB.QueryRowContext(r.Context(), "SELECT coalesce(v.version,0) FROM users u LEFT JOIN login_versions v ON v.user_id=u.id WHERE u.id=?", user).Scan(&currentVersion); err != nil || version != currentVersion {
+		reply(w, 401, nil, "请重新登录")
+		return
+	}
 	conn, err := websocket.Accept(w, r, nil)
 	if err != nil {
 		return
@@ -408,9 +417,17 @@ func (a *App) chatWS(w http.ResponseWriter, r *http.Request, user int64) {
 		select {
 		case <-ctx.Done():
 			return
-		case event := <-ch:
-			yes, err := a.chatAllowed(r, event.ConversationID, user)
-			if err != nil || !yes {
+		case event, open := <-ch:
+			if !open {
+				return
+			}
+			var yes bool
+			err := a.DB.QueryRowContext(ctx, `SELECT `+chatAccess+` FROM users u LEFT JOIN login_versions v ON v.user_id=u.id
+				WHERE u.id=? AND coalesce(v.version,0)=?`, event.ConversationID, user, user, version).Scan(&yes)
+			if err != nil {
+				return
+			}
+			if !yes {
 				continue
 			}
 			writeCtx, end := context.WithTimeout(ctx, 5*time.Second)
@@ -420,5 +437,21 @@ func (a *App) chatWS(w http.ResponseWriter, r *http.Request, user int64) {
 				return
 			}
 		}
+	}
+}
+
+func (a *App) closeUserChats(user int64) {
+	a.chatMu.Lock()
+	defer a.chatMu.Unlock()
+	var current int64
+	if err := a.DB.QueryRow("SELECT version FROM login_versions WHERE user_id=?", user).Scan(&current); err != nil {
+		current = -1
+	}
+	for ch, version := range a.chatClients[user] {
+		if version == current {
+			continue
+		}
+		delete(a.chatClients[user], ch)
+		close(ch)
 	}
 }

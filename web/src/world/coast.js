@@ -1,6 +1,3 @@
-import { WIDTH, HEIGHT, ROAD } from './expedition.js'
-
-// Painted in layers once per chapter and resize. Character movement uses a separate sprite.
 const biomes = [
   { grass:'#aac477', sun:'#d2d98c', shade:'#8da862', pine:'#477b59', rock:'#839084', roof:'#ad6846' },
   { grass:'#d2aa70', sun:'#e8cb91', shade:'#bea064', pine:'#698660', rock:'#b38b64', roof:'#8b644e' },
@@ -9,11 +6,7 @@ const biomes = [
   { grass:'#b7b775', sun:'#d7cc91', shade:'#9fa265', pine:'#60865d', rock:'#91957c', roof:'#b16a45' },
   { grass:'#d3e2d9', sun:'#edf3e9', shade:'#b8cfc9', pine:'#668b7e', rock:'#91aaa7', roof:'#65859a' },
   { grass:'#b8c4a2', sun:'#dce2bf', shade:'#a5b294', pine:'#698e81', rock:'#9aabad', roof:'#727b9a' },
-]
-const lands = [
-  [[30,284],[49,255],[80,244],[86,218],[124,204],[140,182],[178,177],[196,162],[237,168],[246,184],[267,181],[287,203],[317,210],[328,232],[351,243],[358,266],[382,282],[369,307],[339,315],[328,341],[299,348],[287,373],[257,376],[241,395],[199,394],[179,409],[136,399],[118,382],[79,380],[75,362],[46,350],[50,328],[27,310]],
-  [[376,221],[394,189],[419,177],[432,152],[464,147],[485,121],[523,124],[544,105],[576,113],[597,99],[625,108],[638,128],[661,130],[672,153],[688,164],[680,183],[657,197],[652,219],[628,234],[620,265],[588,270],[575,289],[542,286],[520,311],[490,310],[462,331],[428,328],[406,309],[378,305],[368,287],[383,266],[371,248]],
-  [[698,143],[708,120],[740,113],[750,88],[781,82],[799,67],[823,71],[847,49],[873,57],[892,48],[915,65],[920,85],[946,98],[953,125],[971,139],[962,161],[945,168],[937,192],[906,198],[892,221],[860,222],[839,243],[809,241],[788,254],[757,247],[748,227],[721,226],[712,205],[693,195],[697,174],[684,163]],
+  { grass:'#b8b68c', sun:'#e3d5a7', shade:'#9aa27f', pine:'#56785d', rock:'#9a9982', roof:'#4d6665' },
 ]
 function random(seed) {
   let value = seed >>> 0
@@ -30,46 +23,6 @@ function line(ctx, points, color, width = 1) {
 }
 function ellipse(ctx, x, y, rx, ry, color) {
   ctx.fillStyle = color; ctx.beginPath(); ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2); ctx.fill()
-}
-function within([x,y], shape) {
-  let inside = false
-  for (let i=0, j=shape.length-1; i<shape.length; j=i++) {
-    const [ax,ay]=shape[i], [bx,by]=shape[j]
-    if ((ay>y)!==(by>y) && x<(bx-ax)*(y-ay)/(by-ay)+ax) inside=!inside
-  }
-  return inside
-}
-function drawLand(ctx, shape, b, rng, floating) {
-  for (const [dy, color] of [[31,'#72a69b'],[26,'#d1d8ab'],[22,'#88947b']]) {
-    polygon(ctx, shape.map(([x,y]) => [x,y+dy]),color)
-  }
-  shape.forEach(([x,y], i) => {
-    const [u,v] = shape[(i+1)%shape.length]
-    polygon(ctx, [[x,y],[u,v],[u,v+20],[x,y+20]], ['#a39370','#9b9875','#b6ab83','#af9e76'][i%4])
-    if(i%2===0) line(ctx, [[x+2,y+6],[x+3,y+12]],'#857e663d',1.8)
-  })
-  if (floating) {
-    for (let edge=0; edge<shape.length; edge++) {
-      const [x,y] = shape[edge], [u,v] = shape[(edge+1)%shape.length]
-      if (x <= u) continue
-      const depth = 19 + (edge % 5) * 5
-      polygon(ctx, [[x,y+17],[u,v+17],[(x+u)/2-3,(y+v)/2+depth],[x,y+21]], edge%2 ? '#8b9193' : '#9b9b96')
-    }
-  }
-  polygon(ctx,shape,b.grass)
-  // Low ridges and meadows follow the shoreline, with their edges clipped to the land.
-  ctx.save(); ctx.clip()
-  const cx=shape.reduce((sum,p)=>sum+p[0],0)/shape.length, cy=shape.reduce((sum,p)=>sum+p[1],0)/shape.length
-  shape.forEach(([x,y],i) => {
-    const next=shape[(i+1)%shape.length]
-    polygon(ctx, [[x,y],next,[cx+(x-cx)*.65+8,cy+(y-cy)*.65]], i%3===0?b.shade:b.sun)
-  })
-  for(let i=0; i<170; i++) {
-    const x=cx+(rng()-.5)*430, y=cy+(rng()-.5)*260
-    if(!within([x,y],shape)) continue
-    line(ctx,[[x-3,y],[x,y-1],[x+5,y]], i%4===0?'#fff4c785':'#667e4747',1.2)
-  }
-  ctx.restore()
 }
 function pine(ctx,x,y,s,b) {
   ctx.save(); ctx.translate(x,y); ctx.scale(s,s)
@@ -122,16 +75,6 @@ function tower(ctx,x,y,s,b) {
   polygon(ctx,[[0,-79],[15,-78],[11,-75],[15,-72],[0,-73]],'#e6a54d')
   polygon(ctx,[[4,-21],[8,-23],[8,-15],[4,-13]],'#627c72')
   ctx.restore()
-}
-function bridge(ctx,from,to) {
-  const [x,y]=from,[u,v]=to, dx=u-x,dy=v-y
-  line(ctx,[from,to],'#7e674d',13)
-  for(let i=0;i<=12;i++){
-    const t=i/12, xx=x+dx*t, yy=y+dy*t
-    line(ctx,[[xx-1,yy-5],[xx+2,yy+5]],i%2?'#cfad78':'#dfbd87',4)
-    if(i%4===0) line(ctx,[[xx,yy-5],[xx,yy-12]],'#795f45',2.5)
-  }
-  line(ctx,[[x,y-11],[x+dx/2,y+dy/2-9],[u,v-11]],'#9c7c51',1.7)
 }
 function ship(ctx,x,y,s) {
   ctx.save();ctx.translate(x,y);ctx.scale(s,s)
@@ -269,99 +212,27 @@ function skySanctuary(ctx) {
   polygon(ctx,[[0,cy-14],[8,cy],[0,cy+10]],'#557f7a')
 }
 
-const landmarks = [windmill, lighthouse, mine, keep, foundry, alpineStation, skySanctuary]
-
-function landmark(ctx,x,y,scale,biome,draw) {
-  ctx.save()
-  ctx.translate(x,y)
-  ctx.scale(scale,scale)
-  draw(ctx,biome)
-  ctx.restore()
-}
-
-
-export function paintScene(canvas, themeIndex, seed) {
-  const ctx=canvas.getContext('2d')
-  if(!ctx) return
-  const chapter = themeIndex % biomes.length
-  const b = biomes[chapter], rng = random(seed+713)
-  ctx.setTransform(canvas.width/WIDTH,0,0,canvas.height/HEIGHT,0,0)
-  const sea=ctx.createLinearGradient(0,0,WIDTH,HEIGHT)
-  const water = [
-    ['#9fcbc1','#b7d7c8','#81b6b1'], ['#8ab8aa','#afcdb6','#77aca7'],
-    ['#82aaa5','#afcbc2','#83a8a6'], ['#8fbeb1','#bad3c0','#8ab4aa'],
-    ['#a2c1b0','#c1d6bb','#8eb6ab'], ['#a1c5c9','#c4dcdb','#9cbec4'],
-    ['#a4bdcf','#d5e1df','#a4c1d0'],
-  ][chapter]
-  sea.addColorStop(0,water[0]); sea.addColorStop(.55,water[1]); sea.addColorStop(1,water[2])
-  ctx.fillStyle=sea;ctx.fillRect(0,0,WIDTH,HEIGHT)
-  ctx.lineJoin='round';ctx.lineCap='round'
-  for(let i=0;i<550;i++) {
-    const x=rng()*WIDTH,y=rng()*HEIGHT,w=rng()*9+2
-    line(ctx,[[x,y],[x+w*.6,y+.6],[x+w,y-.4]],i%3?'#f0f7df63':'#639e943d',1.3)
+function examinationHall(ctx) {
+  ellipse(ctx, 1, 5, 52, 11, '#4e624539')
+  polygon(ctx, [[-44,0],[-7,-13],[43,-1],[3,13]], '#bcb5a0')
+  polygon(ctx, [[-38,-4],[-6,-14],[37,-4],[2,7]], '#e4d8ae')
+  polygon(ctx, [[-27,-36],[2,-28],[2,3],[-27,-6]], '#e5c78f')
+  polygon(ctx, [[2,-28],[29,-37],[29,-5],[2,3]], '#c19e72')
+  for (const [x,y] of [[-24,-6],[-12,-2],[1,1],[14,-3],[26,-6]]) {
+    line(ctx, [[x,y],[x,y-29]], '#9b4f3c', 3)
   }
-  if (chapter === 6) {
-    for (const [x,y,scale] of [[84,83,1.2],[369,184,.8],[672,335,1.4],[896,303,.85],[360,424,.85]]) {
-      for (const [dx,dy,size] of [[-19,1,14],[-3,-4,20],[16,1,14],[29,3,8]]) {
-        ellipse(ctx, x+dx*scale,y+dy*scale,size*scale,size*.42*scale,'#f0f3e5')
-      }
-    }
-  }
-  if (chapter === 5) {
-    for (const [x,y] of [[110,97],[373,369],[738,303],[918,266],[852,368]]) {
-      polygon(ctx,[[x-14,y],[x-4,y-4],[x+7,y-5],[x+16,y],[x+5,y+4],[x-7,y+4]],'#e5efea')
-      line(ctx,[[x-14,y],[x-8,y+5],[x+6,y+5],[x+16,y]],'#a9c8c8',2)
-    }
-  }
-  for(const shape of lands) {
-    const contour=shape.map(([x,y])=>[x,y+18])
-    for(const [width,color] of [[28,chapter===6?'#aec3cb':'#84c1af'],[18,chapter===6?'#beced1':'#a6d4b9'],[6,chapter===6?'#d3d9d3':'#e2e4c1']]) line(ctx,[...contour,contour[0]],color,width)
-    drawLand(ctx,shape,b,rng,chapter===6)
-  }
-  line(ctx,ROAD,'#ac9e70',12); line(ctx,ROAD,'#e2c68b',9)
-  ctx.setLineDash([3,7]);line(ctx,ROAD,'#f7deb0',1.7);ctx.setLineDash([])
-  bridge(ctx,ROAD[10],ROAD[12]);bridge(ctx,ROAD[23],ROAD[25])
-  const objects=[]
-  function add(fn,x,y,scale){objects.push({fn,x,y,scale})}
-  if ([2,5].includes(chapter)) {
-    add(peak,191,211,.88); add(peak,218,215,.72)
-    add(peak,524,148,.83); add(peak,551,146,1.28); add(peak,582,151,.88)
-  } else {
-    add(peak,527,146,.47); add(peak,557,143,.71)
-  }
-  const addLandmark = (x,y,scale) => add((c,px,py,s,theme) => landmark(c,px,py,s,theme,landmarks[chapter]),x,y,scale)
-  addLandmark(199,258,1.03)
-  if (chapter === 3 || chapter === 6) addLandmark(825,121,.94)
-  else if (chapter === 1) addLandmark(892,109,.78)
-  else add(tower,818,117,.75)
-  if (chapter === 0) {
-    for (const [x,y] of [[151,238],[164,227],[263,277]]) {
-      polygon(ctx, [[x-13,y],[x+4,y-6],[x+16,y],[x+1,y+7]], '#af9a64')
-      for (let row=0;row<4;row++) line(ctx,[[x-10+row*4,y+row],[x+5+row*3,y-5+row]],'#eed598',1.8)
-    }
-  }
-  for(const [cx,cy,n] of [[97,267,7],[285,255,10],[214,375,8],[438,208,7],[534,269,7],[624,152,7],[755,139,6],[873,202,6]]) {
-    for(let i=0;i<n;i++){
-      const x=cx+(rng()-.5)*52,y=cy+(rng()-.5)*23
-      if (themeIndex%7===1 || (themeIndex%7===2 && i%2===0)) add(stone,x,y,.55+rng()*.7)
-      else add(pine,x,y,.45+rng()*.45)
-    }
-  }
-  for(const [x,y,s] of [[145,250,.65],[158,271,.69],[459,190,.55],[595,245,.55],[788,132,.62]]) add(house,x,y,s)
-  if (chapter === 1) {
-    add((c,x,y) => stall(c,x,y,'#b56240'),244,271,1)
-    add((c,x,y) => stall(c,x,y,'#648887'),264,258,1)
-  } else if (chapter === 4) {
-    addLandmark(561,157,.83)
-  } else if (chapter === 5) {
-    add(peak,864,111,.9); add(peak,893,103,.82)
-  }
-  for(const [x,y] of [[69,322],[107,351],[310,348],[469,292],[575,184],[651,159],[739,203],[906,174]]) add(stone,x,y,.55+rng()*.5)
-  objects.sort((a,b)=>a.y-b.y).forEach(({fn,x,y,scale})=>fn(ctx,x,y,scale,b))
-  if (chapter !== 6) {
-    ship(ctx,363,363,.9); ship(ctx,691,269,.55)
-  }
-  for(const [x,y,s] of [[347,169,1],[355,162,.75],[671,95,.8],[679,101,.65]]) {
-    line(ctx,[[x-5*s,y-2*s],[x,y],[x+4*s,y-3*s]],'#54796e',1.5*s)
+  polygon(ctx, [[-42,-32],[-27,-35],[-11,-52],[13,-54],[26,-42],[41,-39],[32,-33],[1,-22],[-31,-29]], '#495f60')
+  line(ctx, [[-42,-32],[-32,-29],[1,-22],[32,-33],[41,-39]], '#c59b58', 2.5)
+  line(ctx, [[-12,-54],[-10,-51],[13,-54],[16,-58]], '#c59b58', 2)
+  polygon(ctx, [[-10,-25],[6,-23],[6,-17],[-10,-19]], '#725332')
+  line(ctx, [[-7,-22],[2,-21]], '#e9c476', 1.5)
+  for (const [x,y] of [[-26,-28],[22,-30]]) {
+    line(ctx, [[x,y],[x,y+5]], '#624d39')
+    ellipse(ctx, x,y+8,3.8,5,'#b75c3e')
+    line(ctx, [[x,y+12],[x,y+15]], '#d3a451')
   }
 }
+const landmarks = [windmill, lighthouse, mine, keep, foundry, alpineStation, skySanctuary, examinationHall]
+
+// Shared art for the atlas and the original individual chapter scenes.
+export { biomes, house, landmarks, peak, pine, random, ship, stone }

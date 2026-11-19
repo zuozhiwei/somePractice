@@ -192,130 +192,60 @@
       </div>
     </div>
 
-    <!-- ========== Submissions tabs ========== -->
-    <div class="section-card">
-      <div class="section-body" style="padding:0">
-        <el-tabs v-model="subTab" @tab-change="onSubTabChange">
-          <el-tab-pane label="我的提交" name="my" />
-          <el-tab-pane v-if="apprentices.length" label="👨‍🎓 徒弟提交" name="apprentice" />
-          <el-tab-pane v-if="isInternal" label="🌐 外部提交" name="external" />
-        </el-tabs>
-      </div>
-    </div>
-
-    <!-- My Submissions -->
-    <div v-show="subTab === 'my'" class="section-card">
-      <div class="section-body" style="padding:0">
-        <el-table :data="mySubs" stripe empty-text="暂无提交记录">
-          <el-table-column prop="taskTitle" label="任务" min-width="180" />
-          <el-table-column label="状态" width="100">
-            <template #default="{ row }">
-              <span class="status-tag" :class="row.status.toLowerCase()">{{ subStatusText(row.status) }}</span>
+    <section class="section-card submissions-card" aria-label="提交记录">
+      <el-tabs v-model="subTab" @tab-change="onSubTabChange">
+        <el-tab-pane v-for="group in visibleLists" :key="group.key" :label="group.label" :name="group.key">
+          <p v-if="group.key === 'external'" class="external-tip">你可以审核等级低于你的外部成员提交的作业。审核完成后，仅审核人可以在这里查看记录。</p>
+          <div v-loading="group.loading" class="submissions-panel" :aria-busy="group.loading">
+            <p v-if="group.failed" class="submissions-empty" role="alert">
+              提交记录加载失败。<el-button text type="primary" @click="loadSubmissions(group)">重试</el-button>
+            </p>
+            <template v-else-if="group.rows.length">
+              <table class="submissions-table" :aria-label="group.label">
+                <thead><tr>
+                  <th scope="col">任务</th>
+                  <th v-if="group.key !== 'my'" scope="col">提交人</th>
+                  <th scope="col">状态</th>
+                  <th scope="col">提交时间</th>
+                  <th v-if="group.key === 'my'" scope="col">反馈</th>
+                  <th scope="col">操作</th>
+                </tr></thead>
+                <tbody>
+                  <tr v-for="row in group.rows" :key="row.id">
+                    <td class="submission-title">{{ row.taskTitle }}</td>
+                    <td v-if="group.key !== 'my'" class="submission-author">{{ row.name || row.username }} <small>提交 #{{ row.id }}</small></td>
+                    <td class="submission-status"><span class="status-tag" :class="row.status?.toLowerCase()">{{ submissionStatusText(row.status) }}</span></td>
+                    <td class="submission-date">{{ formatTime(row.submittedAt) }}</td>
+                    <td v-if="group.key === 'my'" class="submission-feedback" :class="{ 'has-feedback': row.reviewComment || row.aiFeedback }">
+                      <p v-if="row.reviewComment">审核评语：{{ row.reviewComment }}</p>
+                      <p v-if="row.aiFeedback">AI 反馈：{{ row.aiFeedback }}</p>
+                      <span v-if="!row.reviewComment && !row.aiFeedback">—</span>
+                    </td>
+                    <td class="submission-action">
+                      <el-button size="small" type="primary" text @click="openReview(row)">{{ group.key !== 'my' && awaitingReview(row.status) ? '审核' : '查看' }}</el-button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <el-pagination v-if="group.total > 10" class="submission-pages" :current-page="group.page"
+                             :page-size="10" :total="group.total" :pager-count="5" layout="prev, pager, next"
+                             @current-change="page => loadSubmissions(group, page)" background small />
             </template>
-          </el-table-column>
-          <el-table-column label="提交时间" width="160">
-          <template #default="{ row }">{{ formatTime(row.submittedAt) }}</template>
-        </el-table-column>
-          <el-table-column prop="aiFeedback" label="AI 反馈" min-width="180">
-            <template #default="{ row }">
-              <span class="fb-text">{{ row.aiFeedback || '-' }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="reviewComment" label="评语" min-width="120">
-            <template #default="{ row }">
-              <span class="fb-text">{{ row.reviewComment || '-' }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="80" fixed="right">
-            <template #default="{ row }">
-              <el-button size="small" type="primary" text @click="openMyDetail(row)">查看</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-        <div style="display:flex;justify-content:center;padding:12px" v-if="myTotal > 10">
-          <el-pagination v-model:current-page="myPage" :page-size="10"
-                         layout="prev, pager, next" :total="myTotal"
-                         @current-change="p => fetchMySubs(p - 1)" background small />
-        </div>
-      </div>
-    </div>
-
-    <!-- Apprentice Submissions (mentor review) -->
-    <div v-show="subTab === 'apprentice'" class="section-card">
-      <div class="section-body" style="padding:0">
-        <el-table :data="apprenticeSubs" stripe empty-text="暂无徒弟提交">
-          <el-table-column prop="id" label="ID" width="55" />
-          <el-table-column label="用户" width="130">
-            <template #default="{ row }">
-              {{ row.name || row.username }}
-            </template>
-          </el-table-column>
-          <el-table-column prop="taskTitle" label="任务" min-width="160" />
-          <el-table-column label="状态" width="100">
-            <template #default="{ row }">
-              <span class="status-tag" :class="row.status.toLowerCase()">{{ subStatusText(row.status) }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="提交时间" width="160">
-          <template #default="{ row }">{{ formatTime(row.submittedAt) }}</template>
-        </el-table-column>
-          <el-table-column label="操作" width="90" fixed="right">
-            <template #default="{ row }">
-              <el-button size="small" type="primary" text @click="openReview(row)">审核</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-        <div style="display:flex;justify-content:center;padding:12px" v-if="apprenticeTotal > 10">
-          <el-pagination v-model:current-page="apprenticePage" :page-size="10"
-                         layout="prev, pager, next" :total="apprenticeTotal"
-                         @current-change="p => fetchApprenticeSubs(p - 1)" background small />
-        </div>
-      </div>
-    </div>
-
-    <!-- External Submissions (crowd review pool) -->
-    <div v-show="subTab === 'external'" class="section-card">
-      <div class="section-body" style="padding:0">
-        <div class="external-tip">这里展示等级低于你的外部成员提交，任意一人审核即可通过/拒绝；已审核的提交仅审核者本人可见。</div>
-        <el-table :data="externalSubs" stripe empty-text="暂无待审核的外部提交">
-          <el-table-column prop="id" label="ID" width="55" />
-          <el-table-column label="用户" width="130">
-            <template #default="{ row }">
-              {{ row.name || row.username }}
-            </template>
-          </el-table-column>
-          <el-table-column prop="taskTitle" label="任务" min-width="160" />
-          <el-table-column label="状态" width="100">
-            <template #default="{ row }">
-              <span class="status-tag" :class="row.status.toLowerCase()">{{ subStatusText(row.status) }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="提交时间" width="160">
-            <template #default="{ row }">{{ formatTime(row.submittedAt) }}</template>
-          </el-table-column>
-          <el-table-column label="操作" width="90" fixed="right">
-            <template #default="{ row }">
-              <el-button size="small" type="primary" text @click="openReview(row)">审核</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-        <div style="display:flex;justify-content:center;padding:12px" v-if="externalTotal > 10">
-          <el-pagination v-model:current-page="externalPage" :page-size="10"
-                         layout="prev, pager, next" :total="externalTotal"
-                         @current-change="p => fetchExternalSubs(p - 1)" background small />
-        </div>
-      </div>
-    </div>
+            <p v-else-if="!group.loading" class="submissions-empty">{{ group.empty }}</p>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
+    </section>
 
     <!-- Review Dialog -->
-    <el-dialog v-model="reviewVisible" title="审核提交" width="min(800px, calc(100% - 24px))" top="3vh">
+    <el-dialog v-model="reviewVisible" :title="awaitingReview(reviewSub?.status) && !isOwnSubmission && subTab !== 'my' ? '审核提交' : '提交详情'" width="min(800px, calc(100% - 24px))" top="3vh">
       <div v-if="reviewSub" class="review-detail">
         <el-descriptions :column="2" border size="small">
           <el-descriptions-item label="提交 ID">{{ reviewSub.id }}</el-descriptions-item>
           <el-descriptions-item label="用户">{{ reviewSub.name || reviewSub.username }}</el-descriptions-item>
           <el-descriptions-item label="任务">{{ reviewSub.taskTitle }}</el-descriptions-item>
           <el-descriptions-item label="状态">
-            <span class="status-tag" :class="reviewSub.status.toLowerCase()">{{ subStatusText(reviewSub.status) }}</span>
+            <span class="status-tag" :class="reviewSub.status?.toLowerCase()">{{ submissionStatusText(reviewSub.status) }}</span>
           </el-descriptions-item>
           <el-descriptions-item label="提交时间">{{ formatTime(reviewSub.submittedAt) }}</el-descriptions-item>
           <el-descriptions-item label="审核时间">{{ reviewSub.reviewedAt ? formatTime(reviewSub.reviewedAt) : '-' }}</el-descriptions-item>
@@ -331,7 +261,11 @@
           <div class="sub-ai-text">{{ reviewSub.aiFeedback }}</div>
         </div>
 
-        <div class="sub-section" v-if="!isOwnSubmission">
+        <div v-if="reviewSub.reviewComment" class="sub-section">
+          <div class="sub-section-title">审核评语</div>
+          <p>{{ reviewSub.reviewComment }}</p>
+        </div>
+        <div class="sub-section" v-if="!isOwnSubmission && awaitingReview(reviewSub.status)">
           <div class="sub-section-title">审核操作</div>
           <div class="sub-actions">
             <el-input v-model="reviewComment" placeholder="评语" size="small" style="width:200px" />
@@ -345,7 +279,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { submissionStatusText, awaitingReview } from '../submissionStatus'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { mentorshipApi } from '../api/mentorship'
 import { skillsApi } from '../api/skills'
 import { tasksApi } from '../api/tasks'
@@ -377,18 +312,22 @@ const searchResults = ref([])
 
 // Submissions
 const subTab = ref('my')
-const mySubs = ref([])
-const myPage = ref(1)
-const myTotal = ref(0)
-const apprenticeSubs = ref([])
-const apprenticePage = ref(1)
-const apprenticeTotal = ref(0)
-const externalSubs = ref([])
-const externalPage = ref(1)
-const externalTotal = ref(0)
-
 const isInternal = computed(() => ['INTERNAL', 'TEACHER', 'SUPERADMIN'].includes(authStore.user?.role))
 const isExternal = computed(() => authStore.user?.role === 'EXTERNAL')
+function submissionList(key, label, empty, fetch) {
+  return reactive({ key, label, empty, fetch, rows: [], page: 1, total: 0, loading: false, failed: false, request: 0 })
+}
+const submissionLists = {
+  my: submissionList('my', '我的提交', '暂无提交记录', tasksApi.mySubmissions),
+  apprentice: submissionList('apprentice', '徒弟提交', '暂无徒弟提交', tasksApi.apprenticeSubmissions),
+  external: submissionList('external', '外部成员提交', '暂无外部成员提交', tasksApi.externalSubmissions)
+}
+const visibleLists = computed(() => {
+  const lists = [submissionLists.my]
+  if (apprentices.value.length) lists.push(submissionLists.apprentice)
+  if (isInternal.value) lists.push(submissionLists.external)
+  return lists
+})
 
 const timelineLevels = computed(() => [...levels.value].sort((a, b) => {
   const mapDiff = (a.mapId ?? Number.MAX_SAFE_INTEGER) - (b.mapId ?? Number.MAX_SAFE_INTEGER)
@@ -526,7 +465,6 @@ function levelShort(lv) {
   if (lv >= 10) return '🥈白银'
   return '🥉青铜'
 }
-function subStatusText(s) { return { APPROVED:'已通过',REJECTED:'未通过',PENDING:'审核中',AI_REVIEWED:'AI已评' }[s]||s }
 
 function formatTime(ts) {
   if (!ts) return '-'
@@ -534,9 +472,8 @@ function formatTime(ts) {
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0')
 }
 
-function onSubTabChange(tab) {
-  if (tab === 'apprentice') fetchApprenticeSubs(0)
-  if (tab === 'external') fetchExternalSubs(0)
+function onSubTabChange(key) {
+  loadSubmissions(submissionLists[key])
 }
 
 function startTimelineDrag(event) {
@@ -608,31 +545,24 @@ async function fetchTimeline() {
   }
 }
 
-async function fetchMySubs(page = 0) {
+async function loadSubmissions(group, page = group.page) {
+  const request = ++group.request
+  group.page = page
+  group.loading = true
+  group.failed = false
   try {
-    const res = await tasksApi.mySubmissions(page, 10)
-    const d = res.data.data
-    mySubs.value = d.content || []
-    myTotal.value = d.total || 0
-  } catch (e) { console.error(e) }
-}
-
-async function fetchApprenticeSubs(page = 0) {
-  try {
-    const res = await tasksApi.apprenticeSubmissions(page, 10)
-    const d = res.data.data
-    apprenticeSubs.value = d.content || []
-    apprenticeTotal.value = d.total || 0
-  } catch (e) { console.error(e) }
-}
-
-async function fetchExternalSubs(page = 0) {
-  try {
-    const res = await tasksApi.externalSubmissions(page, 10)
-    const d = res.data.data
-    externalSubs.value = d.content || []
-    externalTotal.value = d.total || 0
-  } catch (e) { console.error(e) }
+    const res = await group.fetch(page - 1, 10)
+    if (request !== group.request) return
+    const { content, total } = res.data.data
+    const lastPage = Math.max(1, Math.ceil(total / 10))
+    if (page > lastPage) return loadSubmissions(group, lastPage)
+    group.rows = content
+    group.total = total
+  } catch {
+    if (request === group.request) group.failed = true
+  } finally {
+    if (request === group.request) group.loading = false
+  }
 }
 
 // ---- Mentor request ----
@@ -728,49 +658,26 @@ async function openReview(row) {
   }
 }
 
-/** 徒弟查看自己某次提交的完整内容 */
-async function openMyDetail(row) {
-  reviewVisible.value = true
-  reviewSub.value = null
-  reviewComment.value = ''
-  try {
-    const res = await tasksApi.submissionDetail(row.id)
-    reviewSub.value = res.data.data
-  } catch (e) {
-    ElMessage.error(e.response?.data?.message || '加载详情失败')
-  }
-}
-
 async function doReview(status) {
   reviewing.value = true
   try {
     await tasksApi.review(reviewSub.value.id, { status, reviewComment: reviewComment.value || undefined })
     ElMessage.success(status === 'approved' ? '已通过' : '已拒绝')
     reviewVisible.value = false
-    if (subTab.value === 'external') {
-      fetchExternalSubs(externalPage.value - 1)
-    } else {
-      await fetchApprenticeSubs(apprenticePage.value - 1)
-      await fetchData()
-    }
+    await loadSubmissions(submissionLists[subTab.value])
+    if (subTab.value === 'apprentice') await fetchData()
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '审核失败')
   } finally { reviewing.value = false }
 }
 
 onMounted(async () => {
-  await fetchData()
-  fetchMySubs(0)
-  // 检查是否有待审核的徒弟提交，默认打开徒弟提交标签
-  if (apprentices.value.length > 0) {
-    await fetchApprenticeSubs(0)
-    const pendingCount = apprenticeSubs.value.filter(s => s.status === 'PENDING').length
-    if (pendingCount > 0) {
+  await Promise.all([fetchData(), loadSubmissions(submissionLists.my)])
+  if (apprentices.value.length) {
+    await loadSubmissions(submissionLists.apprentice)
+    if (subTab.value === 'my' && submissionLists.apprentice.rows.some(row => awaitingReview(row.status))) {
       subTab.value = 'apprentice'
     }
-  }
-  if (isInternal.value) {
-    fetchExternalSubs(0)
   }
 })
 </script>
@@ -863,8 +770,43 @@ onMounted(async () => {
 .status-tag.rejected { background: #fee2e2; color: #dc2626; }
 .status-tag.pending { background: #faf0d7; color: #895b19; }
 .status-tag.ai_reviewed { background: #e0f2fe; color: #0284c7; }
-.fb-text { font-size: 13px; color: #58685d; }
-.external-tip { font-size: 12px; color: #216354; background: #edf5ee; padding: 8px 12px; margin: 12px; border-radius: 8px; }
+.submissions-card { padding: 4px 22px 18px; min-width: 0; }
+.submissions-card :deep(.el-tabs__header) { margin-bottom: 12px; }
+.submissions-card :deep(.el-tabs__item) { height: 48px; }
+.submissions-panel { min-height: 76px; }
+.submissions-table { width: 100%; border-collapse: collapse; font-size: 14px; text-align: left; overflow-wrap: anywhere; }
+.submissions-table th, .submissions-table td { padding: 12px 10px; }
+.submissions-table th { background: var(--el-fill-color-light); font-size: 13px; font-weight: 600; color: var(--color-text-secondary); }
+.submissions-table td { border-bottom: 1px solid var(--color-border); vertical-align: middle; }
+.submission-title { width: 27%; font-weight: 600; }
+.submission-author small { display: block; color: var(--color-text-secondary); }
+.submission-status, .submission-date, .submission-action { white-space: nowrap; }
+.submission-feedback, .submission-date { font-size: 13px; color: var(--color-text-secondary); }
+.submission-feedback { min-width: 8em; }
+.submission-feedback p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.submission-action .el-button { min-width: 44px; }
+.submission-pages { justify-content: center; margin-top: 14px; }
+.submissions-empty { padding: 28px 0; text-align: center; color: var(--color-text-secondary); font-size: 14px; }
+.external-tip { color: var(--color-primary); font-size: 13px; padding: 8px 12px; margin-bottom: 12px; background: #edf5ee; border-radius: 8px; }
+@media (max-width: 720px) {
+  .submissions-card { padding: 2px 16px 8px; }
+  .submissions-card :deep(.el-tabs__header) { margin-bottom: 4px; }
+  .submissions-card :deep(.el-tabs__item) { padding-inline: 12px; }
+  .submissions-card :deep(.el-tabs__item:first-child) { padding-left: 0; }
+  .submissions-table, .submissions-table tbody { display: block; }
+  .submissions-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .submissions-table tr { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 6px 10px; padding: 12px 0; border-bottom: 1px solid var(--color-border); }
+  .submissions-table td { padding: 0; border: none; width: auto; }
+  .submission-title { grid-area: 1 / 1; }
+  .submission-status { grid-area: 1 / 2; justify-self: end; }
+  .submission-author { grid-column: 1; font-size: 13px; }
+  .submission-author small { display: inline; }
+  .submission-feedback { grid-column: 1 / -1; min-width: 0; }
+  .submission-feedback:not(.has-feedback) { display: none; }
+  .submission-action { grid-area: 2 / 2; justify-self: end; }
+  .submission-action .el-button { min-height: 34px; }
+  .submission-pages { margin-block: 12px 6px; }
+}
 
 /* Review detail */
 .review-detail { display: flex; flex-direction: column; gap: 16px; }

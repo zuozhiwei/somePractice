@@ -9,7 +9,7 @@ if ! id skilltree >/dev/null 2>&1; then useradd --system --home-dir /var/lib/ski
 install -d -m 0755 /opt/skilltree
 install -d -o skilltree -g skilltree -m 0700 /var/lib/skilltree /var/lib/skilltree/backups
 chown skilltree:skilltree /var/lib/skilltree/skilltree.db
-for file in skilltree skilltree-migrate skilltree-repair skilltree-backup; do install -m 0755 "bin/$file" "/opt/skilltree/$file"; done
+for file in skilltree skilltree-migrate skilltree-repair skilltree-backup skilltree-curriculum; do install -m 0755 "bin/$file" "/opt/skilltree/$file"; done
 install -m 0755 deploy/backup.sh /opt/skilltree/backup.sh
 install -m 0644 deploy/skilltree.service /etc/systemd/system/skilltree.service
 install -m 0644 deploy/skilltree-backup.service /etc/systemd/system/skilltree-backup.service

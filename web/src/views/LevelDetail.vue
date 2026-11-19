@@ -12,7 +12,7 @@
           </nav>
           <div class="title-line">
             <h1 class="page-title">{{ level.name }}</h1>
-            <el-tag :type="statusTagType" size="small" effect="light">{{ statusText(level.userStatus?.status) }}</el-tag>
+            <el-tag :type="statusTagType" size="small" effect="light">{{ levelStatusText(level.userStatus?.status) }}</el-tag>
             <el-tag v-if="level.tier" size="small" effect="plain">Lv.{{ level.tier }}</el-tag>
             <el-tag v-if="level.category" size="small" effect="plain" type="info">{{ level.category }}</el-tag>
             <span class="level-num-chip" v-if="levelNum">第 {{ levelNum }} 关</span>
@@ -77,7 +77,7 @@
                     <span class="task-title">{{ task.title }}</span>
                     <span class="task-tags">
                       <span class="status-tag" :class="task.submissionStatus.toLowerCase()">
-                        {{ statusText(task.submissionStatus) }}
+                        {{ submissionStatusText(task.submissionStatus) }}
                       </span>
                       <span class="xp-tag">{{ task.xpReward }} XP</span>
                       <span v-if="task.acceptanceCriteria?.length" class="criteria-count">
@@ -105,17 +105,21 @@
                 </div>
                 <div v-if="task.aiFeedback" class="ai-feedback-box">
                   <div class="ai-feedback-header">
-                    <span>AI 评审结果</span>
+                    <span>最近 AI 评语</span>
                     <span class="ai-score">{{ extractScore(task.aiFeedback) }} 分</span>
                   </div>
                   <div class="ai-feedback-text">{{ extractFeedback(task.aiFeedback) }}</div>
+                </div>
+                <div v-if="task.reviewComment" class="task-review-note">
+                  <div class="desc-label">最近审核意见</div>
+                  <div>{{ task.reviewComment }}</div>
                 </div>
                 <div class="task-actions">
                   <div class="task-status-info">
                     <span v-if="task.submissionStatus === 'APPROVED'" class="hint-text approved">你已完成此任务</span>
                     <span v-else-if="task.submissionStatus === 'PENDING'" class="hint-text pending">等待审核，可继续本关其他任务</span>
                     <span v-else-if="task.submissionStatus === 'REJECTED'" class="hint-text rejected">未通过，请重新提交</span>
-                    <span v-else-if="task.submissionStatus === 'AI_REVIEWED'" class="hint-text ai-reviewed">AI 已评审，等待最终确认</span>
+                    <span v-else-if="task.submissionStatus === 'AI_REVIEWED'" class="hint-text ai-reviewed">AI 已评审，等待人工审核</span>
 
                   </div>
                   <div class="task-action-btns">
@@ -126,7 +130,7 @@
                     <el-button type="primary" size="default" round
                                :disabled="task.submissionStatus === 'APPROVED' || level.userStatus?.status === 'LOCKED'"
                                @click.stop="openSubmit(task)">
-                      {{ task.submissionStatus === 'REJECTED' ? '重新提交' : task.submissionStatus === 'APPROVED' ? '已完成' : task.submissionStatus === 'PENDING' ? '修改后重新提交' : '提交任务' }}
+                      {{ submissionActionText(task.submissionStatus) }}
                     </el-button>
                   </div>
                 </div>
@@ -146,6 +150,7 @@
 </template>
 
 <script setup>
+import { submissionStatusText, submissionActionText } from '../submissionStatus'
 import { ref, onMounted, reactive, computed, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { mapsApi } from '../api/maps'
@@ -179,8 +184,8 @@ const statusTagType = computed(() => {
   return { COMPLETED: 'success', LEARNING: 'primary', LOCKED: 'info' }[s] || 'info'
 })
 
-function statusText(s) {
-  return { COMPLETED: '已通关', LEARNING: '挑战中', LOCKED: '未解锁', APPROVED: '已通过', REJECTED: '未通过', PENDING: '审核中', AI_REVIEWED: 'AI已评', NONE: '待提交' }[s] || '待提交'
+function levelStatusText(status) {
+  return { COMPLETED: '已通关', LEARNING: '挑战中', LOCKED: '未解锁' }[status] || '未知状态'
 }
 function extractScore(fb) { const m = fb?.match(/AI评分:\s*(\d+)/); return m ? m[1] : '--' }
 function extractFeedback(fb) { const idx = fb?.indexOf('\n'); return idx > -1 ? fb.substring(idx + 1).trim() : fb }
@@ -312,6 +317,7 @@ onMounted(async () => {
 .criteria-item { display: flex; align-items: baseline; gap: 6px; font-size: 13px; color: #3e5147; padding: 4px 0; }
 .criteria-num { color: #216354; font-weight: 600; min-width: 20px; }
 .criteria-weight { font-size: 11px; color: #667568; margin-left: auto; }
+.task-review-note { margin: 8px 20px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .task-actions {
   flex-wrap: wrap; gap: 10px;
   display: flex; align-items: center; justify-content: space-between;

@@ -61,6 +61,14 @@ func call(h http.Handler, method, path, body, token string) *httptest.ResponseRe
 	h.ServeHTTP(w, r)
 	return w
 }
+func testSessionVersion(t *testing.T, db *sql.DB, id int64) int64 {
+	t.Helper()
+	var version int64
+	if err := db.QueryRow("SELECT version FROM login_versions WHERE user_id=?", id).Scan(&version); err != nil {
+		t.Fatal(err)
+	}
+	return version
+}
 func loginToken(t *testing.T, h http.Handler) string {
 	t.Helper()
 	w := call(h, "POST", "/api/auth/login", `{"username":"alice","password":"correct-password"}`, "")
@@ -135,6 +143,54 @@ func TestIndependentChapterIsPlayableFromMapAndDetail(t *testing.T) {
 	}
 	if response := call(h, "GET", "/api/levels/2", "", token); response.Code != 200 {
 		t.Fatalf("independent level: %s", response.Body)
+	}
+}
+
+func TestAtlasIncludesAllRegionsAndPersonalProgress(t *testing.T) {
+	db, h := testApp(t)
+	if _, err := db.Exec(`INSERT INTO maps(id,is_builtin,name,order_index) VALUES(3,0,'Empty',3);
+		INSERT INTO users(id,username,password,role,total_xp,level) SELECT 2,'other',password,'EXTERNAL',0,0 FROM users WHERE id=1;
+		INSERT INTO user_task_submissions(user_id,task_id,status,ai_review_count) VALUES(2,1,'APPROVED',0)`); err != nil {
+		t.Fatal(err)
+	}
+	if res := call(h, "GET", "/api/maps/atlas", "", ""); res.Code != 401 {
+		t.Fatalf("anonymous atlas status %d", res.Code)
+	}
+	token := loginToken(t, h)
+	res := call(h, "GET", "/api/maps/atlas", "", token)
+	var atlas struct {
+		Data struct {
+			Chapters []struct {
+				ID     int
+				Levels []struct {
+					ID, TaskDone, TaskTotal int
+					Status                  string
+				}
+			}
+		}
+	}
+	if res.Code != 200 || json.Unmarshal(res.Body.Bytes(), &atlas) != nil || len(atlas.Data.Chapters) != 3 {
+		t.Fatalf("invalid atlas: %s", res.Body)
+	}
+	first, second, empty := atlas.Data.Chapters[0], atlas.Data.Chapters[1], atlas.Data.Chapters[2]
+	if first.ID != 1 || len(first.Levels) != 1 || first.Levels[0].Status != "LEARNING" ||
+		first.Levels[0].TaskDone != 0 || first.Levels[0].TaskTotal != 1 || second.ID != 2 ||
+		len(second.Levels) != 1 || second.Levels[0].Status != "LOCKED" || empty.ID != 3 || empty.Levels == nil || len(empty.Levels) != 0 {
+		t.Fatalf("incorrect region or user data: %s", res.Body)
+	}
+	res = call(h, "GET", "/api/adventure/mission", "", token)
+	var mission struct {
+		Data struct {
+			Level struct {
+				ID                int
+				Name, ChapterName string
+			}
+			Task struct{ ID int }
+		}
+	}
+	if res.Code != 200 || json.Unmarshal(res.Body.Bytes(), &mission) != nil || mission.Data.Task.ID != 1 ||
+		mission.Data.Level.ID != 1 || mission.Data.Level.Name != "Start" || mission.Data.Level.ChapterName != "First" {
+		t.Fatalf("recommended task without the correct level: %s", res.Body)
 	}
 }
 
@@ -232,15 +288,15 @@ func TestStaffPermissionBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 	app := New(db)
-	teacher, err := app.loginToken(2, "TEACHER", "TEACHER")
+	teacher, err := app.loginToken(2, "TEACHER", "TEACHER", testSessionVersion(t, db, 2))
 	if err != nil {
 		t.Fatal(err)
 	}
-	admin, err := app.loginToken(3, "SUPERADMIN", "SUPERADMIN")
+	admin, err := app.loginToken(3, "SUPERADMIN", "SUPERADMIN", testSessionVersion(t, db, 3))
 	if err != nil {
 		t.Fatal(err)
 	}
-	staleAdmin, err := app.loginToken(3, "SUPERADMIN", "TEACHER")
+	staleAdmin, err := app.loginToken(3, "SUPERADMIN", "TEACHER", testSessionVersion(t, db, 3))
 	if err != nil {
 		t.Fatal(err)
 	}

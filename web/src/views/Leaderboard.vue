@@ -16,49 +16,35 @@
           </article>
         </div>
 
-        <el-table v-if="rankRows.length || !leaders.length" :data="rankRows" stripe style="width:100%" empty-text="暂无排行数据">
-          <el-table-column label="排名" width="80">
-            <template #default="{ row }">
-              <span class="rank-num">{{ row.rank }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="用户" min-width="116">
-            <template #default="{ row }">
-              {{ row.name || row.username }}
-            </template>
-          </el-table-column>
-          <el-table-column label="等级" width="120">
-            <template #default="{ row }">
-              <span class="level-text">Lv.{{ row.level }}</span>
-              <span class="level-title">{{ levelShort(row.level) }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="经验值" width="120">
-            <template #default="{ row }">
-              <span class="xp-text">{{ row.totalXp }} XP</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="本页经验对比" min-width="150">
-            <template #default="{ row }">
-              <div class="xp-bar-wrap">
-                <div class="xp-bar" :style="{ width: Math.min(row.totalXp / maxXp * 100, 100) + '%' }"></div>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="100" fixed="right">
-            <template #default="{ row }">
-              <el-button v-if="canRequestMentor(row)" size="small" type="primary" text @click="openMentorDialog(row)">
-                拜师
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+        <table v-if="rankRows.length" class="rank-table" aria-label="成员排名">
+          <thead><tr>
+            <th scope="col">排名</th>
+            <th scope="col">成员</th>
+            <th scope="col">等级</th>
+            <th scope="col" class="numeric">累计经验</th>
+            <th scope="col" class="numeric">距榜首</th>
+            <th v-if="showActions" scope="col">操作</th>
+          </tr></thead>
+          <tbody>
+            <tr v-for="row in rankRows" :key="row.userId">
+              <td class="rank-num"><span class="mobile-prefix">第 </span>{{ row.rank }}<span class="mobile-prefix"> 名</span></td>
+              <td class="member-name">{{ row.name || row.username }}</td>
+              <td class="member-level"><span class="level-text">Lv.{{ row.level }}</span><span class="level-title">{{ levelShort(row.level) }}</span></td>
+              <td class="numeric xp-text">{{ row.totalXp }} XP</td>
+              <td class="numeric xp-gap"><span v-if="row.totalXp < leaderXp"><span class="mobile-prefix">距榜首 </span>{{ leaderXp - row.totalXp }} XP</span><span v-else>与榜首持平</span></td>
+              <td v-if="showActions" class="rank-action">
+                <el-button v-if="canRequestMentor(row)" size="small" type="primary" text @click="openMentorDialog(row)">拜师</el-button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <el-empty v-else-if="!loading && !leaders.length" description="暂无排行数据" :image-size="56" />
       </div>
     </div>
 
-    <div style="display:flex;justify-content:center;margin-top:20px">
+    <div v-if="total > 20" class="rank-pages">
       <el-pagination v-model:current-page="page" :page-size="20"
-                     layout="prev, pager, next" :total="total"
+                     layout="prev, pager, next" :total="total" :pager-count="5"
                      @current-change="fetchData" background />
     </div>
 
@@ -101,6 +87,7 @@ const list = ref([])
 const loading = ref(false)
 const page = ref(1)
 const total = ref(0)
+const leaderXp = ref(0)
 // 当前用户已有的徒弟/师傅/申请关系（判断能否拜师）
 const myApprenticeIds = ref([])
 const myMentorIds = ref([])
@@ -114,7 +101,7 @@ const requestLoading = ref(false)
 
 const leaders = computed(() => page.value === 1 ? list.value.slice(0, 3) : [])
 const rankRows = computed(() => list.value.slice(leaders.value.length))
-const maxXp = computed(() => Math.max(...list.value.map(l => l.totalXp), 1))
+const showActions = computed(() => rankRows.value.some(canRequestMentor))
 
 function levelShort(lv) {
   if (lv >= 70) return '👑王者'
@@ -127,14 +114,25 @@ function levelShort(lv) {
   return '🥉青铜'
 }
 
+let latestPageRequest = 0
 async function fetchData() {
+  const request = ++latestPageRequest
   loading.value = true
   try {
     const res = await leaderboardApi.global(page.value - 1, 20)
+    if (request !== latestPageRequest) return
     const data = res.data.data
+    leaderXp.value = data.leaderXp
     list.value = data.content || []
     total.value = data.total || 0
-  } catch (e) { console.error(e) } finally { loading.value = false }
+  } catch {
+    if (request === latestPageRequest) {
+      list.value = []
+      ElMessage.error('排行榜加载失败，请稍后重试')
+    }
+  } finally {
+    if (request === latestPageRequest) loading.value = false
+  }
 }
 
 /** 拉取当前用户的师徒关系，用于判断"能否拜某人为师" */
@@ -217,8 +215,30 @@ onMounted(() => {
 .level-text { font-weight: 600; color: #216354; margin-right: 4px; }
 .level-title { font-size: 12px; color: #667568; }
 .xp-text { font-weight: 600; color: #895b19; }
-.xp-bar-wrap { height: 6px; background: #edf0e9; border-radius: 3px; overflow: hidden; }
-.xp-bar { height: 100%; background: linear-gradient(90deg, #216354, #397c67); border-radius: 3px; transition: width .5s; }
+.rank-table { width: 100%; border-collapse: collapse; font-size: 14px; text-align: left; }
+.rank-table td, .rank-table th { padding: 12px; }
+.rank-table th { font-weight: 600; color: var(--color-text-secondary); background: var(--el-fill-color-light); }
+.rank-table tbody tr + tr { border-top: 1px solid var(--color-border); }
+.rank-table td { overflow-wrap: anywhere; }
+.numeric { text-align: right; font-variant-numeric: tabular-nums; }
+.xp-gap { color: var(--color-text-secondary); }
+.rank-table .numeric, .rank-num { white-space: nowrap; }
+.rank-pages { display: flex; justify-content: center; margin-top: 20px; }
+.mobile-prefix { display: none; }
+.section-card { overflow: hidden; container-type: inline-size; }
+@container (max-width: 620px) {
+  .rank-table, .rank-table tbody { display: block; }
+  .rank-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .rank-table tr { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 3px 10px; align-items: baseline; padding: 12px 16px; }
+  .rank-table td { padding: 0; }
+  .member-name { grid-area: 1 / 1; font-weight: 600; }
+  .xp-text { grid-area: 1 / 2; }
+  .rank-num { grid-area: 2 / 1; font-size: 12px; }
+  .xp-gap { grid-area: 2 / 2; font-size: 12px; }
+  .member-level { grid-area: 3 / 1; font-size: 12px; }
+  .rank-action { grid-area: 3 / 2; text-align: right; }
+  .mobile-prefix { display: inline; }
+}
 
 /* 拜师对话框样式 */
 .mentor-dialog-content { display: flex; flex-direction: column; gap: 16px; }

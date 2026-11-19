@@ -9,7 +9,7 @@
         <div class="history-head">
           <div class="history-left">
             <span class="attempt-badge">第 {{ submissions.length - idx }} 次提交</span>
-            <span class="status-tag" :class="sub.status.toLowerCase()">{{ statusText(sub.status) }}</span>
+            <span class="status-tag" :class="sub.status?.toLowerCase()">{{ submissionStatusText(sub.status) }}</span>
           </div>
           <span class="history-time">{{ formatTime(sub.submittedAt) }}</span>
         </div>
@@ -25,7 +25,7 @@
         </div>
 
         <div v-if="sub.reviewComment" class="history-section">
-          <div class="history-section-title">师傅评语</div>
+          <div class="history-section-title">审核意见</div>
           <div class="plain-text">{{ sub.reviewComment }}</div>
         </div>
 
@@ -38,6 +38,7 @@
 </template>
 
 <script setup>
+import { submissionStatusText } from '../submissionStatus'
 import { ref } from 'vue'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
@@ -49,9 +50,6 @@ const loading = ref(false)
 const task = ref(null)
 const submissions = ref([])
 
-function statusText(s) {
-  return { APPROVED: '已通过', REJECTED: '未通过', PENDING: '审核中', AI_REVIEWED: 'AI已评', NONE: '待提交' }[s] || s
-}
 
 function formatTime(ts) {
   if (!ts) return '-'

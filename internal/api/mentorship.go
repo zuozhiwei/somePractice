@@ -10,9 +10,17 @@ import (
 	"time"
 )
 
+type mentorInviteClaims struct {
+	// Login tokens include userId and must never be accepted as invitations.
+	LoginUserID *int64 `json:"userId,omitempty"`
+	Version     int64  `json:"sv,omitempty"`
+	jwt.RegisteredClaims
+}
+
 func (a *App) inviteLink(w http.ResponseWriter, r *http.Request, user int64) {
 	var role string
-	if a.DB.QueryRowContext(r.Context(), `SELECT COALESCE(role,'') FROM users WHERE id=?`, user).Scan(&role) != nil {
+	var version int64
+	if a.DB.QueryRowContext(r.Context(), `SELECT COALESCE(u.role,''),COALESCE(v.version,0) FROM users u LEFT JOIN login_versions v ON v.user_id=u.id WHERE u.id=?`, user).Scan(&role, &version) != nil {
 		fail(w)
 		return
 	}
@@ -21,7 +29,7 @@ func (a *App) inviteLink(w http.ResponseWriter, r *http.Request, user int64) {
 		return
 	}
 	now := time.Now()
-	token, err := jwt.NewWithClaims(a.signingMethod(), jwt.RegisteredClaims{Subject: strconv.FormatInt(user, 10), IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(7 * 24 * time.Hour))}).SignedString(a.key)
+	token, err := jwt.NewWithClaims(a.signingMethod(), mentorInviteClaims{Version: version, RegisteredClaims: jwt.RegisteredClaims{Subject: strconv.FormatInt(user, 10), IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(7 * 24 * time.Hour))}}).SignedString(a.key)
 	if err != nil {
 		fail(w)
 		return

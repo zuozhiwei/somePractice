@@ -77,7 +77,7 @@ func (a *App) submissionPool(w http.ResponseWriter, r *http.Request, user int64,
 		where = `EXISTS(SELECT 1 FROM mentorships m WHERE m.mentor_id=? AND m.apprentice_id=s.user_id AND m.status='ACTIVE') AND s.id=(SELECT x.id FROM user_task_submissions x WHERE x.user_id=s.user_id AND x.task_id=s.task_id ORDER BY x.submitted_at DESC,x.id DESC LIMIT 1)`
 		args = []any{user}
 	} else {
-		where = `EXISTS(SELECT 1 FROM users reviewer JOIN users student ON student.id=s.user_id WHERE reviewer.id=? AND reviewer.role IN ('INTERNAL','TEACHER','SUPERADMIN') AND student.role='EXTERNAL' AND ((s.status='PENDING' AND COALESCE(reviewer.level,0)>COALESCE(student.level,0)) OR s.reviewer_id=reviewer.id))`
+		where = `EXISTS(SELECT 1 FROM users reviewer JOIN users student ON student.id=s.user_id WHERE reviewer.id=? AND reviewer.role IN ('INTERNAL','TEACHER','SUPERADMIN') AND student.role='EXTERNAL' AND ((s.status IN ('PENDING','AI_REVIEWED') AND COALESCE(reviewer.level,0)>COALESCE(student.level,0)) OR s.reviewer_id=reviewer.id))`
 		args = []any{user}
 	}
 	var total int
