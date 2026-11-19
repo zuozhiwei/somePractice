@@ -132,6 +132,30 @@ func TestExpiredTokenRejected(t *testing.T) {
 	}
 }
 
+func TestAdminRoleChangePreservesPassword(t *testing.T) {
+	db, h := testApp(t)
+	if _, err := db.Exec(`INSERT INTO users(id,username,password,role,total_xp,level)
+		SELECT 2,'teacher',password,'TEACHER',0,0 FROM users WHERE id=1`); err != nil {
+		t.Fatal(err)
+	}
+	login := call(h, "POST", "/api/auth/login", `{"username":"teacher","password":"correct-password"}`, "")
+	var response struct {
+		Data struct {
+			Token string
+		}
+	}
+	if login.Code != 200 || json.Unmarshal(login.Body.Bytes(), &response) != nil || response.Data.Token == "" {
+		t.Fatalf("teacher login returned %d", login.Code)
+	}
+	if w := call(h, "PUT", "/api/admin/users/1/role?role=INTERNAL", "", response.Data.Token); w.Code != 200 {
+		t.Fatalf("role update %d %s", w.Code, w.Body)
+	}
+	w := call(h, "POST", "/api/auth/login", `{"username":"alice","password":"correct-password"}`, "")
+	if w.Code != 200 || !bytes.Contains(w.Body.Bytes(), []byte(`"role":"INTERNAL"`)) {
+		t.Fatalf("login after role update returned %d", w.Code)
+	}
+}
+
 func TestReviewAwardsXPOnce(t *testing.T) {
 	db, h := testApp(t)
 	hash, err := bcrypt.GenerateFromPassword([]byte("mentor-password"), bcrypt.MinCost)

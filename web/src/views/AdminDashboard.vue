@@ -83,7 +83,7 @@
 
     <!-- ======================== Users Tab ======================== -->
     <div v-show="activeTab === 'users'">
-      <el-table :data="usersList" stripe empty-text="暂无用户">
+      <el-table v-loading="usersLoading" :data="usersList" stripe empty-text="暂无用户">
         <el-table-column prop="id" label="ID" width="55" />
         <el-table-column label="用户" width="170">
           <template #default="{ row }">
@@ -106,7 +106,7 @@
         <el-table-column prop="totalXp" label="XP" width="80" align="center" />
         <el-table-column label="操作" min-width="300">
           <template #default="{ row }">
-            <el-select v-model="row._newRole" size="small" style="width:85px" @change="v => updateRole(row.id, v)">
+            <el-select :model-value="row.role" :disabled="row._savingRole" size="small" style="width:85px" @change="v => updateRole(row, v)">
               <el-option label="教师" value="TEACHER" />
               <el-option label="内部" value="INTERNAL" />
               <el-option label="游客" value="EXTERNAL" />
@@ -116,7 +116,15 @@
         </el-table-column>
       </el-table>
       <div style="display:flex;justify-content:center;margin-top:16px">
-        <el-pagination layout="prev, pager, next" :total="totalUsers" @current-change="p => fetchUsers(p - 1)" background />
+        <el-pagination
+          layout="prev, pager, next"
+          :total="totalUsers"
+          :page-size="userPageSize"
+          :current-page="userPage"
+          :disabled="usersLoading"
+          @update:current-page="changeUserPage"
+          background
+        />
       </div>
     </div>
 
@@ -384,6 +392,9 @@ const inviteCodesList = ref([])
 const taskSkillFilter = ref(null)
 const saving = ref(false)
 const totalUsers = ref(0)
+const userPageSize = 20
+const userPage = ref(1)
+const usersLoading = ref(false)
 const newInviteCode = ref('')
 const newInviteDesc = ref('')
 const newInviteDays = ref(7)
@@ -673,11 +684,34 @@ async function fetchTasks() {
   const res = await tasksApi.list(id).catch(() => ({ data: { data: [] } }))
   tasksList.value = res.data.data || []
 }
-async function fetchUsers(page = 0) {
-  const res = await adminApi.listUsers(page, 20)
-  const data = res.data.data || {}
-  usersList.value = (data.content || []).map(u => ({ ...u, _newRole: u.role, _level: u.level || 0 }))
-  totalUsers.value = data.total || 0
+function changeUserPage(page) {
+  if (page !== userPage.value) fetchUsers(page)
+}
+
+let userListRequest = 0
+async function fetchUsers(page = userPage.value) {
+  const request = ++userListRequest
+  usersLoading.value = true
+  try {
+    let data
+    for (;;) {
+      const res = await adminApi.listUsers(page - 1, userPageSize)
+      if (request !== userListRequest) return
+      data = res.data.data
+      const lastPage = Math.max(1, Math.ceil(data.total / userPageSize))
+      if (page <= lastPage) break
+      page = lastPage
+    }
+    userPage.value = page
+    totalUsers.value = data.total
+    usersList.value = data.content.map(u => ({ ...u, _level: u.level || 0 }))
+  } catch (error) {
+    if (request === userListRequest) {
+      ElMessage.error(error.response?.data?.message || '加载用户列表失败')
+    }
+  } finally {
+    if (request === userListRequest) usersLoading.value = false
+  }
 }
 async function fetchSubs() {
   const res = await adminApi.listSubmissions()
@@ -689,10 +723,21 @@ async function removeUser(row) {
     await ElMessageBox.confirm(`确定删除用户「${row.name || row.username}」？其提交、师徒关系、进度等数据将一并删除。`, '确认', { type: 'warning' })
     await adminApi.deleteUser(row.id)
     ElMessage.success('已删除')
-    fetchUsers()
+    await fetchUsers()
   } catch (e) { if (e !== 'cancel') ElMessage.error('删除失败') }
 }
-async function updateRole(id, role) { try { await adminApi.updateRole(id, role); ElMessage.success('已更新') } catch (e) { ElMessage.error('失败') } }
+async function updateRole(row, role) {
+  row._savingRole = true
+  try {
+    await adminApi.updateRole(row.id, role)
+    row.role = role
+    ElMessage.success('角色已更新')
+  } catch (error) {
+    ElMessage.error(error.response?.data?.message || '更新角色失败')
+  } finally {
+    row._savingRole = false
+  }
+}
 async function delSkill(id) {
   try { await ElMessageBox.confirm('确定删除该关卡？', '确认', { type: 'warning' }); await adminApi.deleteLevel(id); ElMessage.success('已删除'); fetchSkills() } catch (e) { if (e !== 'cancel') ElMessage.error(e.response?.data?.message || '删除失败') }
 }
