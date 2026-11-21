@@ -136,14 +136,22 @@ func (a *App) Register(m *http.ServeMux) {
 	m.HandleFunc("GET /api/admin/submissions", a.auth(a.staff(false, a.adminSubmissions)))
 	m.HandleFunc("GET /api/admin/mentorship-graph", a.auth(a.staff(true, a.adminGraph)))
 }
-func reply(w http.ResponseWriter, status int, data any, msg string) {
+
+type responseEnvelope struct {
+	Code    int    `json:"code"`
+	Data    any    `json:"data,omitempty"`
+	Message string `json:"message"`
+}
+
+func writeJSONStatus(w http.ResponseWriter, status int) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
-	v := map[string]any{"code": status, "message": msg}
-	if data != nil {
-		v["data"] = data
-	}
-	_ = json.NewEncoder(w).Encode(v)
+}
+
+func reply(w http.ResponseWriter, status int, data any, msg string) {
+	writeJSONStatus(w, status)
+	_ = json.NewEncoder(w).Encode(responseEnvelope{Code: status, Data: data, Message: msg})
 }
 func ok(w http.ResponseWriter, v any)       { reply(w, 200, v, "success") }
 func bad(w http.ResponseWriter, msg string) { reply(w, 400, nil, msg) }

@@ -87,5 +87,8 @@ func Migrate(db *sql.DB) error {
 	if err := ensureExploration(db); err != nil {
 		return err
 	}
+	if err := ensureMentorshipRanks(db); err != nil {
+		return err
+	}
 	return ensureAccountRecovery(db)
 }

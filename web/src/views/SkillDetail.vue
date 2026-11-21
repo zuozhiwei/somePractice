@@ -4,7 +4,7 @@
       <div>
         <h1 class="page-title">{{ skill?.name }}</h1>
         <p class="page-subtitle">
-          <el-tag :type="levelTag(skill?.tier)" size="small" effect="light">{{ 'Lv.' + skill?.tier }}</el-tag>
+          <el-tag v-if="skill?.tier > 0" :type="levelTag(skill.tier)" size="small" effect="light">难度 {{ skill.tier }}</el-tag>
           <span style="margin-left:8px;color:var(--color-text-secondary)">{{ skill?.category }}</span>
           <span v-if="skill?.prerequisiteNames?.length" style="margin-left:8px;font-size:13px;color:#e6a23c">
             前置：{{ skill?.prerequisiteNames.join('、') }}

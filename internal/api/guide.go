@@ -28,9 +28,9 @@ func (a *App) mentorDialog(w http.ResponseWriter, r *http.Request, user int64) {
 			graduated = false
 		}
 	}
-	out := map[string]any{"content": "这张地图不在这里……你走错地方了。", "canSubmit": false, "mapCompleted": false, "graduated": graduated, "currentLevelId": nil, "currentLevelName": nil}
+	out := map[string]any{"content": "在项目路线中选择一个章节，就能查看可继续的任务。", "canSubmit": false, "mapCompleted": false, "graduated": graduated, "currentLevelId": nil, "currentLevelName": nil}
 	if graduated {
-		out["content"] = "🎉 你出师了！带上你的作品去闯荡江湖吧！"
+		out["content"] = "全部章节已完成。欢迎把你的作品链接发给同学，继续收集反馈。"
 		out["mapCompleted"] = true
 	} else {
 		for i, m := range maps {
@@ -40,17 +40,17 @@ func (a *App) mentorDialog(w http.ResponseWriter, r *http.Request, user int64) {
 			switch m["status"] {
 			case "LOCKED":
 				if i > 0 {
-					out["content"] = "前面的地图还没通关呢，先把「" + maps[i-1]["name"].(string) + "」打完，再来这里吧。"
+					out["content"] = "先完成「" + maps[i-1]["name"].(string) + "」的交付，再开始这一章。"
 				}
 			case "COMPLETED":
-				out["content"] = "干得漂亮！这张地图你已经完全掌握了，去下一个地图吧。"
+				out["content"] = "这一章已验收。保留当前的代码，继续扩展下一章的功能。"
 				out["mapCompleted"] = true
 			default:
 				out["currentLevelId"] = m["currentLevelId"]
 				out["currentLevelName"] = m["currentLevelName"]
 				out["canSubmit"] = true
 				if n, ok := m["currentLevelName"].(string); ok {
-					out["content"] = "去把「" + n + "」完成了再来找我。"
+					out["content"] = "可以从「" + n + "」继续。先看看本关要交付什么，再打开配套教程。"
 				}
 			}
 			break
@@ -86,7 +86,11 @@ func (a *App) leaderboard(w http.ResponseWriter, r *http.Request, user int64) {
 		fail(w)
 		return
 	}
-	rows, err := tx.QueryContext(r.Context(), `SELECT id,username,name,avatar,total_xp,COALESCE(level,0) FROM users ORDER BY total_xp DESC,id LIMIT ? OFFSET ?`, size, page*size)
+	rows, err := tx.QueryContext(r.Context(), `
+		SELECT mentor.id,mentor.username,mentor.name,mentor.avatar,mentor.total_xp,COALESCE(mentor.level,0),
+			CASE WHEN (`+eligibleMentorPair+`) AND NOT `+existingMentorPair+` THEN 1 ELSE 0 END
+		FROM users AS mentor JOIN users AS apprentice ON apprentice.id=?
+		ORDER BY mentor.total_xp DESC,mentor.id LIMIT ? OFFSET ?`, user, size, page*size)
 	if err != nil {
 		fail(w)
 		return
@@ -98,11 +102,12 @@ func (a *App) leaderboard(w http.ResponseWriter, r *http.Request, user int64) {
 		var username string
 		var name, avatar sql.NullString
 		var xp, level int
-		if rows.Scan(&id, &username, &name, &avatar, &xp, &level) != nil {
+		var canRequestMentor bool
+		if rows.Scan(&id, &username, &name, &avatar, &xp, &level, &canRequestMentor) != nil {
 			fail(w)
 			return
 		}
-		content = append(content, map[string]any{"rank": page*size + len(content) + 1, "userId": id, "username": username, "name": nullString(name), "avatar": nullString(avatar), "totalXp": xp, "level": level})
+		content = append(content, map[string]any{"rank": page*size + len(content) + 1, "userId": id, "username": username, "name": nullString(name), "avatar": nullString(avatar), "totalXp": xp, "level": level, "canRequestMentor": canRequestMentor})
 	}
 	if rows.Err() != nil {
 		fail(w)
@@ -176,7 +181,7 @@ func (a *App) mission(w http.ResponseWriter, r *http.Request, user int64) {
 			if awaitingReview(t.Status) {
 				state = "WAITING_REVIEW"
 			}
-			ok(w, map[string]any{
+			okLearning(w, r, map[string]any{
 				"state": state,
 				"level": map[string]any{"id": l.ID, "name": l.Name, "chapterName": chapters[l.MapID.Int64], "orderIndex": l.Order},
 				"task":  t.response(), "tutorials": tutorials,

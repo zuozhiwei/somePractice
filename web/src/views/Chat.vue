@@ -81,6 +81,7 @@ import { chatApi } from '../api/chat'
 import { useAuthStore } from '../store/auth'
 import { useChatStore } from '../store/chat'
 import { ElMessage } from 'element-plus'
+import 'element-plus/es/components/message/style/css'
 
 const authStore = useAuthStore()
 const chatStore = useChatStore()

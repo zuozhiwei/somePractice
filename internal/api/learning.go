@@ -1,15 +1,17 @@
 package api
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"slices"
 	"strconv"
 )
 
 type level struct {
 	ID                    int64
-	MapID                 sql.NullInt64
+	MapID, Number         sql.NullInt64
 	Name                  string
 	Description, Category sql.NullString
 	Tier, Order, XP       int
@@ -46,14 +48,22 @@ func (a *App) snapshot(r *http.Request, user int64) (snapshot, error) {
 		return s, err
 	}
 	s.teacher = role == "TEACHER" || role == "SUPERADMIN"
-	rows, err := a.DB.QueryContext(r.Context(), `SELECT id,map_id,name,description,category,tier,order_index,xp_reward,prerequisite_level_ids FROM levels ORDER BY order_index,id`)
+	// Keep published lesson numbers steady when a teacher inserts custom levels.
+	// Unassigned levels have no position in the course.
+	rows, err := a.DB.QueryContext(r.Context(), `
+		SELECT l.id,l.map_id,l.name,l.description,l.category,l.tier,l.order_index,l.xp_reward,l.prerequisite_level_ids,
+			CASE WHEN m.id IS NOT NULL THEN row_number() OVER (
+				PARTITION BY m.id IS NULL ORDER BY l.is_builtin DESC,m.order_index,m.id,l.order_index,l.id
+			) END
+		FROM levels l LEFT JOIN maps m ON m.id=l.map_id
+		ORDER BY l.order_index,l.id`)
 	if err != nil {
 		return s, err
 	}
 	for rows.Next() {
 		var l level
 		var raw sql.NullString
-		if err = rows.Scan(&l.ID, &l.MapID, &l.Name, &l.Description, &l.Category, &l.Tier, &l.Order, &l.XP, &raw); err != nil {
+		if err = rows.Scan(&l.ID, &l.MapID, &l.Name, &l.Description, &l.Category, &l.Tier, &l.Order, &l.XP, &raw, &l.Number); err != nil {
 			rows.Close()
 			return s, err
 		}
@@ -148,7 +158,7 @@ func (a *App) taskList(w http.ResponseWriter, r *http.Request, user int64) {
 		row["createdBy"], row["createdAt"] = nullInt(t.CreatedBy), a.timestamp(t.CreatedAt)
 		out = append(out, row)
 	}
-	ok(w, out)
+	okLearning(w, r, out)
 }
 func (a *App) summaries(r *http.Request, user int64, s snapshot) ([]map[string]any, error) {
 	rows, err := a.DB.QueryContext(r.Context(), `SELECT id,name,icon,description,story,order_index FROM maps ORDER BY order_index,id`)
@@ -188,7 +198,7 @@ func (a *App) summaries(r *http.Request, user int64, s snapshot) ([]map[string]a
 		} else if total > 0 && done == 0 && currentID == nil {
 			status = "LOCKED"
 		}
-		out = append(out, map[string]any{"id": id, "name": name, "icon": nullString(icon), "description": nullString(desc), "story": nullString(story), "orderIndex": order, "status": status, "levelsCompleted": done, "totalLevels": total, "xpEarned": xp, "currentLevelId": currentID, "currentLevelName": currentName})
+		out = append(out, map[string]any{"id": id, "name": name, "icon": nullString(icon), "description": nullString(desc), "story": nullString(story), "orderIndex": order, "chapterNumber": len(out) + 1, "status": status, "levelsCompleted": done, "totalLevels": total, "xpEarned": xp, "currentLevelId": currentID, "currentLevelName": currentName})
 	}
 	return out, rows.Err()
 }
@@ -203,7 +213,7 @@ func (a *App) maps(w http.ResponseWriter, r *http.Request, user int64) {
 		fail(w)
 		return
 	}
-	ok(w, m)
+	okLearning(w, r, m)
 }
 func (a *App) mapProgress(w http.ResponseWriter, r *http.Request, user int64) {
 	s, err := a.snapshot(r, user)
@@ -231,7 +241,7 @@ func (a *App) mapProgress(w http.ResponseWriter, r *http.Request, user int64) {
 			name = v["name"]
 		}
 	}
-	ok(w, map[string]any{"totalMaps": len(m), "totalLevels": total, "completedLevels": done, "totalXp": xp, "currentMapId": id, "currentMapName": name, "maps": m})
+	okLearning(w, r, map[string]any{"totalMaps": len(m), "totalLevels": total, "completedLevels": done, "totalXp": xp, "currentMapId": id, "currentMapName": name, "maps": m})
 }
 func (a *App) mapDetail(w http.ResponseWriter, r *http.Request, user int64) {
 	id, err := idParam(r)
@@ -252,11 +262,16 @@ func (a *App) mapDetail(w http.ResponseWriter, r *http.Request, user int64) {
 	delete(chapter, "xpEarned")
 	delete(chapter, "currentLevelId")
 	delete(chapter, "currentLevelName")
-	ok(w, chapter)
+	okLearning(w, r, chapter)
 }
 
 func (a *App) mapAtlas(w http.ResponseWriter, r *http.Request, user int64) {
 	chapters, err := a.chaptersWithLevels(r, user, 0)
+	if err != nil {
+		fail(w)
+		return
+	}
+	totalXP, achievements, err := a.atlasRewards(r.Context(), user)
 	if err != nil {
 		fail(w)
 		return
@@ -280,7 +295,55 @@ func (a *App) mapAtlas(w http.ResponseWriter, r *http.Request, user int64) {
 		fail(w)
 		return
 	}
-	ok(w, map[string]any{"chapters": chapters, "visitedChapterIds": visited})
+	okLearningWithETag(w, r, user, map[string]any{
+		"chapters": chapters, "visitedChapterIds": visited,
+		"totalXp": totalXP, "achievements": achievements,
+	})
+}
+
+type atlasAchievement struct {
+	TaskID     int64  `json:"taskId"`
+	LevelID    int64  `json:"levelId"`
+	Title      string `json:"title"`
+	ReviewedAt any    `json:"reviewedAt"`
+}
+
+func (a *App) atlasRewards(ctx context.Context, user int64) (int, []atlasAchievement, error) {
+	rows, err := a.DB.QueryContext(ctx, `
+		WITH approved_tasks AS (
+			SELECT t.id AS task_id, l.id AS level_id, t.title, MAX(s.reviewed_at) AS reviewed_at
+			FROM user_task_submissions s
+			JOIN tasks t ON t.id=s.task_id
+			JOIN levels l ON l.id=t.level_id
+			JOIN maps m ON m.id=l.map_id
+			WHERE s.user_id=? AND s.status='APPROVED'
+			GROUP BY t.id, l.id, t.title
+		)
+		SELECT u.total_xp, ap.task_id, ap.level_id, ap.title, ap.reviewed_at
+		FROM users u LEFT JOIN approved_tasks ap ON TRUE
+		WHERE u.id=?
+		ORDER BY ap.reviewed_at DESC, ap.task_id`, user, user)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer rows.Close()
+
+	var totalXP int
+	achievements := []atlasAchievement{}
+	for rows.Next() {
+		var taskID, levelID sql.NullInt64
+		var title, reviewedAt sql.NullString
+		if err := rows.Scan(&totalXP, &taskID, &levelID, &title, &reviewedAt); err != nil {
+			return 0, nil, err
+		}
+		if taskID.Valid {
+			achievements = append(achievements, atlasAchievement{
+				TaskID: taskID.Int64, LevelID: levelID.Int64, Title: title.String,
+				ReviewedAt: a.timestamp(reviewedAt),
+			})
+		}
+	}
+	return totalXP, achievements, rows.Err()
 }
 
 func (a *App) visitMap(w http.ResponseWriter, r *http.Request, user int64) {
@@ -374,7 +437,7 @@ func (a *App) chaptersWithLevels(r *http.Request, user, chapterID int64) ([]map[
 		count := counts[l.ID]
 		levels[l.MapID.Int64] = append(list, map[string]any{
 			"id": l.ID, "name": l.Name, "description": nullString(l.Description),
-			"orderIndex": l.Order, "xpReward": l.XP, "status": status, "progress": s.progress[l.ID].Progress,
+			"orderIndex": l.Order, "levelNumber": nullInt(l.Number), "xpReward": l.XP, "status": status, "progress": s.progress[l.ID].Progress,
 			"taskDone": count.done, "taskTotal": count.total, "prerequisiteNames": s.prerequisiteNames(l),
 		})
 	}
@@ -417,9 +480,9 @@ func (a *App) levelTree(w http.ResponseWriter, r *http.Request, user int64) {
 		if ts == nil {
 			ts = []map[string]any{}
 		}
-		out = append(out, map[string]any{"id": l.ID, "name": l.Name, "mapId": nullInt(l.MapID), "orderIndex": l.Order, "tier": l.Tier, "category": nullString(l.Category), "status": status, "progress": progress, "tasks": ts, "prerequisiteNames": s.prerequisiteNames(l), "prerequisiteIds": l.Prereqs})
+		out = append(out, map[string]any{"id": l.ID, "name": l.Name, "mapId": nullInt(l.MapID), "orderIndex": l.Order, "levelNumber": nullInt(l.Number), "tier": l.Tier, "category": nullString(l.Category), "status": status, "progress": progress, "tasks": ts, "prerequisiteNames": s.prerequisiteNames(l), "prerequisiteIds": l.Prereqs})
 	}
-	ok(w, out)
+	okLearning(w, r, out)
 }
 func (a *App) levelDetail(w http.ResponseWriter, r *http.Request, user int64) {
 	id, err := idParam(r)
@@ -474,5 +537,19 @@ func (a *App) levelDetail(w http.ResponseWriter, r *http.Request, user int64) {
 	for _, t := range tasks {
 		ts = append(ts, t.response())
 	}
-	ok(w, map[string]any{"id": l.ID, "name": l.Name, "tier": l.Tier, "category": nullString(l.Category), "mapId": nullInt(l.MapID), "mapName": nullString(mapName), "prerequisiteNames": s.prerequisiteNames(l), "tutorials": tutorials, "tasks": ts, "userStatus": map[string]any{"status": status, "progress": pct}})
+	var nextLevel map[string]any
+	if status == "COMPLETED" {
+		for _, candidate := range s.levels {
+			if slices.Contains(candidate.Prereqs, l.ID) && s.unlocked(candidate) && s.progress[candidate.ID].Status != "COMPLETED" {
+				nextLevel = map[string]any{"id": candidate.ID, "name": candidate.Name}
+				break
+			}
+		}
+	}
+	okLearningWithETag(w, r, user, map[string]any{
+		"id": l.ID, "name": l.Name, "description": nullString(l.Description), "orderIndex": l.Order, "levelNumber": nullInt(l.Number),
+		"tier": l.Tier, "category": nullString(l.Category), "mapId": nullInt(l.MapID), "mapName": nullString(mapName),
+		"prerequisiteNames": s.prerequisiteNames(l), "tutorials": tutorials, "tasks": ts, "nextLevel": nextLevel,
+		"userStatus": map[string]any{"status": status, "progress": pct},
+	})
 }

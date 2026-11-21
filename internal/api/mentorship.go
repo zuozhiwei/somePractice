@@ -3,12 +3,28 @@ package api
 import (
 	"database/sql"
 	"encoding/json"
-	"github.com/golang-jwt/jwt/v5"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 )
+
+const eligibleMentorPair = `apprentice.role='INTERNAL'
+	AND mentor.role IN ('INTERNAL','TEACHER','SUPERADMIN')
+	AND COALESCE(mentor.level,0)>COALESCE(apprentice.level,0)`
+
+const existingMentorPair = `EXISTS (
+	SELECT 1 FROM mentorships WHERE status IN ('ACTIVE','PENDING')
+		AND ((mentor_id=mentor.id AND apprentice_id=apprentice.id)
+			OR (mentor_id=apprentice.id AND apprentice_id=mentor.id))
+)`
+
+const eligiblePendingMentorship = `EXISTS (
+	SELECT 1 FROM users AS mentor JOIN users AS apprentice ON apprentice.id=m.apprentice_id
+	WHERE mentor.id=m.mentor_id AND ` + eligibleMentorPair + `
+)`
 
 type mentorInviteClaims struct {
 	// Login tokens include userId and must never be accepted as invitations.
@@ -18,14 +34,16 @@ type mentorInviteClaims struct {
 }
 
 func (a *App) inviteLink(w http.ResponseWriter, r *http.Request, user int64) {
-	var role string
+	var eligible bool
 	var version int64
-	if a.DB.QueryRowContext(r.Context(), `SELECT COALESCE(u.role,''),COALESCE(v.version,0) FROM users u LEFT JOIN login_versions v ON v.user_id=u.id WHERE u.id=?`, user).Scan(&role, &version) != nil {
+	if a.DB.QueryRowContext(r.Context(), `SELECT
+		CASE WHEN u.role IN ('INTERNAL','TEACHER','SUPERADMIN') AND COALESCE(u.level,0)>0 THEN 1 ELSE 0 END,
+		COALESCE(v.version,0) FROM users u LEFT JOIN login_versions v ON v.user_id=u.id WHERE u.id=?`, user).Scan(&eligible, &version) != nil {
 		fail(w)
 		return
 	}
-	if role == "EXTERNAL" {
-		bad(w, "游客不能邀请徒弟")
+	if !eligible {
+		bad(w, "内部成员和教师达到 1 级后可邀请徒弟")
 		return
 	}
 	now := time.Now()
@@ -51,22 +69,22 @@ func (a *App) mentorshipRequest(w http.ResponseWriter, r *http.Request, user int
 		return
 	}
 	defer tx.Rollback()
-	var role, mentorRole string
-	var level, mentorLevel int
-	if tx.QueryRow(`SELECT COALESCE(role,''),COALESCE(level,0) FROM users WHERE id=?`, user).Scan(&role, &level) != nil || tx.QueryRow(`SELECT COALESCE(role,''),COALESCE(level,0) FROM users WHERE id=?`, req.MentorID).Scan(&mentorRole, &mentorLevel) != nil {
+	var eligible, existing bool
+	err = tx.QueryRowContext(r.Context(), `SELECT COALESCE((`+eligibleMentorPair+`),0), `+existingMentorPair+`
+		FROM users AS mentor JOIN users AS apprentice ON apprentice.id=? WHERE mentor.id=?`, user, req.MentorID).Scan(&eligible, &existing)
+	if err == sql.ErrNoRows {
 		bad(w, "用户不存在")
 		return
 	}
-	if role != "INTERNAL" || (mentorRole != "INTERNAL" && mentorRole != "TEACHER" && mentorRole != "SUPERADMIN") || mentorLevel <= level {
-		bad(w, "仅内部成员可拜师，师父必须为级别更高的内部成员或教师")
-		return
-	}
-	var n int
-	if err = tx.QueryRow(`SELECT count(*) FROM mentorships WHERE status IN ('ACTIVE','PENDING') AND ((mentor_id=? AND apprentice_id=?) OR (mentor_id=? AND apprentice_id=?))`, req.MentorID, user, user, req.MentorID).Scan(&n); err != nil {
+	if err != nil {
 		fail(w)
 		return
 	}
-	if n > 0 {
+	if !eligible {
+		bad(w, "仅内部成员可拜师，师父等级须高于申请人")
+		return
+	}
+	if existing {
 		bad(w, "师徒关系已存在或申请处理中")
 		return
 	}
@@ -91,9 +109,12 @@ func (a *App) mentorshipAction(w http.ResponseWriter, r *http.Request, user int6
 	}
 	action := r.URL.Path[strings.LastIndex(r.URL.Path, "/")+1:]
 	var q string
+	rejected := "关系不存在或无权操作"
 	switch action {
 	case "approve":
-		q = `UPDATE mentorships SET status='ACTIVE' WHERE id=? AND mentor_id=? AND status='PENDING'`
+		q = `UPDATE mentorships AS m SET status='ACTIVE'
+			WHERE id=? AND mentor_id=? AND status='PENDING' AND ` + eligiblePendingMentorship
+		rejected = "无法通过此申请。师父等级须高于申请人"
 	case "reject":
 		q = `UPDATE mentorships SET status='ENDED' WHERE id=? AND mentor_id=? AND status='PENDING'`
 	case "quit":
@@ -111,13 +132,14 @@ func (a *App) mentorshipAction(w http.ResponseWriter, r *http.Request, user int6
 	}
 	n, _ := res.RowsAffected()
 	if n == 0 {
-		bad(w, "关系不存在或无权操作")
+		bad(w, rejected)
 		return
 	}
 	ok(w, nil)
 }
 func (a *App) relationList(r *http.Request, user int64, kind string) ([]map[string]any, error) {
 	var where, peer string
+	approval := "0"
 	switch kind {
 	case "mentors":
 		where = "m.apprentice_id=? AND m.status='ACTIVE'"
@@ -128,11 +150,13 @@ func (a *App) relationList(r *http.Request, user int64, kind string) ([]map[stri
 	case "pending":
 		where = "m.mentor_id=? AND m.status='PENDING'"
 		peer = "m.apprentice_id"
+		approval = eligiblePendingMentorship
 	case "sentRequests":
 		where = "m.apprentice_id=? AND m.status='PENDING'"
 		peer = "m.mentor_id"
 	}
-	rows, err := a.DB.QueryContext(r.Context(), `SELECT m.id,u.id,u.username,u.name,u.avatar,m.status,m.created_at,COALESCE(u.level,0) FROM mentorships m JOIN users u ON u.id=`+peer+` WHERE `+where+` ORDER BY m.id`, user)
+	rows, err := a.DB.QueryContext(r.Context(), `SELECT m.id,u.id,u.username,u.name,u.avatar,m.status,m.created_at,COALESCE(u.level,0),`+approval+
+		` FROM mentorships m JOIN users u ON u.id=`+peer+` WHERE `+where+` ORDER BY m.id`, user)
 	if err != nil {
 		return nil, err
 	}
@@ -142,11 +166,16 @@ func (a *App) relationList(r *http.Request, user int64, kind string) ([]map[stri
 		var username, status string
 		var name, avatar, created sql.NullString
 		var level int
-		if err = rows.Scan(&id, &uid, &username, &name, &avatar, &status, &created, &level); err != nil {
+		var canApprove bool
+		if err = rows.Scan(&id, &uid, &username, &name, &avatar, &status, &created, &level, &canApprove); err != nil {
 			rows.Close()
 			return nil, err
 		}
-		out = append(out, map[string]any{"id": id, "userId": uid, "username": username, "name": nullString(name), "avatar": nullString(avatar), "status": status, "createdAt": a.timestamp(created), "level": level, "completedLevels": 0, "totalLevels": 0, "currentLevelIndex": 0, "currentLevelId": nil, "currentLevelName": nil, "taskProgress": nil})
+		entry := map[string]any{"id": id, "userId": uid, "username": username, "name": nullString(name), "avatar": nullString(avatar), "status": status, "createdAt": a.timestamp(created), "level": level, "completedLevels": 0, "totalLevels": 0, "currentLevelIndex": 0, "currentLevelId": nil, "currentLevelName": nil, "taskProgress": nil}
+		if kind == "pending" {
+			entry["canApprove"] = canApprove
+		}
+		out = append(out, entry)
 	}
 	if err = rows.Err(); err != nil {
 		rows.Close()
@@ -287,7 +316,11 @@ func (a *App) mentorshipSearch(w http.ResponseWriter, r *http.Request, user int6
 		bad(w, "查询过长")
 		return
 	}
-	rows, err := a.DB.QueryContext(r.Context(), `SELECT id,username,name,role,total_xp,COALESCE(level,0) FROM users WHERE id<>? AND role IN ('INTERNAL','TEACHER','SUPERADMIN') AND (username LIKE ? OR name LIKE ?) ORDER BY id LIMIT 10`, user, "%"+q+"%", "%"+q+"%")
+	rows, err := a.DB.QueryContext(r.Context(), `
+		SELECT mentor.id,mentor.username,mentor.name,mentor.role,mentor.total_xp,COALESCE(mentor.level,0)
+		FROM users AS mentor JOIN users AS apprentice ON apprentice.id=?
+		WHERE (`+eligibleMentorPair+`) AND NOT `+existingMentorPair+`
+			AND (mentor.username LIKE ? OR mentor.name LIKE ?) ORDER BY mentor.id LIMIT 10`, user, "%"+q+"%", "%"+q+"%")
 	if err != nil {
 		fail(w)
 		return

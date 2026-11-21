@@ -1,0 +1,1 @@
+const E={NONE:"待提交",PENDING:"待审核",AI_REVIEWED:"待人工审核",APPROVED:"已通过",REJECTED:"未通过"};function r(n){return E[n]||"未知状态"}function i(n){return n==="PENDING"||n==="AI_REVIEWED"}function e(n){return n==="APPROVED"?"已完成":n==="REJECTED"?"重新提交":i(n)?"补充作业":"提交作业"}export{i as a,r as b,e as s};

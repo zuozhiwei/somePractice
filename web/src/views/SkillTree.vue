@@ -64,7 +64,8 @@
                    @click="goDetail(skill)"
               >
                 <div class="node-top">
-                  <span class="node-lv" :class="'lv-'+skill.tier">Lv.{{ skill.tier }}</span>
+                  <span v-if="skill.levelNumber" class="node-position">第 {{ skill.levelNumber }} 关</span>
+                  <span v-if="skill.tier > 0" class="node-difficulty" :class="'difficulty-'+skill.tier">难度 {{ skill.tier }}</span>
                   <span class="node-cat">{{ skill.category }}</span>
                 </div>
                 <div class="node-name">{{ skill.name }}</div>
@@ -98,6 +99,7 @@ import { useRouter } from 'vue-router'
 import { useMapStore } from '../store/map'
 import { mapsApi } from '../api/maps'
 import { ElMessage } from 'element-plus'
+import 'element-plus/es/components/message/style/css'
 
 const router = useRouter()
 const skills = ref([])
@@ -129,8 +131,8 @@ const filteredSkills = computed(() => {
 
 const categories = computed(() => [...new Set(skills.value.map(skill => skill.category).filter(Boolean))])
 const columns = computed(() => {
-  const chapters = new Map((mapStore.progress?.maps || []).map((chapter, i) => [chapter.id,
-    { id: chapter.id, number: i + 1, name: chapter.name, skills: [] }
+  const chapters = new Map((mapStore.progress?.maps || []).map(chapter => [chapter.id,
+    { id: chapter.id, number: chapter.chapterNumber, name: chapter.name, skills: [] }
   ]))
   for (const skill of filteredSkills.value) {
     const id = skill.mapId ?? 'unassigned'
@@ -340,11 +342,13 @@ onBeforeUnmount(() => resizeObserver?.disconnect())
 .skill-node.learning { border-color: #216354; }
 .skill-node.mastered { border-color: #3b825f; background: #f0f6ed; }
 
-.node-top { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
-.node-lv { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; }
-.node-lv.lv-1, .node-lv.lv-2 { background: #edf0e9; color: #58685d; }
-.node-lv.lv-3 { background: #faf0d7; color: #895b19; }
-.node-lv.lv-4, .node-lv.lv-5 { background: #fee2e2; color: #dc2626; }
+.node-top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-bottom: 8px; }
+.node-position, .node-difficulty { font-size: 11px; font-weight: 700; white-space: nowrap; }
+.node-position { color: #3f5549; }
+.node-difficulty { padding: 2px 6px; border-radius: 4px; background: #edf0e9; color: #58685d; }
+.node-difficulty.difficulty-3 { background: #faf0d7; color: #895b19; }
+.node-difficulty.difficulty-4, .node-difficulty.difficulty-5 { background: #f7e5db; color: #8b482b; }
+.node-difficulty.difficulty-6, .node-difficulty.difficulty-7 { background: #ede4f4; color: #684682; }
 .node-cat { font-size: 11px; color: #667568; }
 
 .node-name { font-size: 14px; font-weight: 600; color: var(--color-text); margin-bottom: 8px; line-height: 1.4; }

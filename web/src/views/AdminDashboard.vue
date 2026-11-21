@@ -30,9 +30,9 @@
         <el-table-column prop="id" label="ID" width="55" />
         <el-table-column prop="name" label="名称" min-width="200" />
         <el-table-column prop="category" label="分类" width="80" />
-        <el-table-column label="等级" width="70">
+        <el-table-column label="难度" width="70">
           <template #default="{ row }">
-            <span class="lv-badge" :class="'lv-'+row.tier">Lv.{{ row.tier }}</span>
+            <span class="lv-badge" :class="'lv-'+row.tier">{{ row.tier }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="orderIndex" label="关卡序" width="75" align="center" />
@@ -221,33 +221,45 @@
     </el-dialog>
 
     <!-- ======================== Submissions Tab ======================== -->
-    <div class="admin-workspace" v-show="activeTab === 'submissions'">
-      <el-table :data="subsList" stripe empty-text="暂无提交记录">
-        <el-table-column prop="id" label="ID" width="55" />
-        <el-table-column label="用户" width="140">
-          <template #default="{ row }">
-            {{ row.name ? row.name + ' (' + row.username + ')' : row.username }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="taskTitle" label="任务" min-width="180" />
-        <el-table-column label="状态" width="100">
-          <template #default="{ row }">
-            <span class="sub-status-tag" :class="row.status?.toLowerCase()">{{ submissionStatusText(row.status) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="提交时间" width="170">
-          <template #default="{ row }">{{ formatTime(row.submittedAt) }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="100" fixed="right">
-          <template #default="{ row }">
-            <el-button size="small" type="primary" text @click="openSubDetail(row)">详情</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+    <div class="admin-workspace" v-if="activeTab === 'submissions'">
+      <ReviewQueueSwitch v-model="staffQueue.mode" :total="staffQueue.current.total"
+                         :busy="staffQueue.current.loading || staffQueue.current.failed" @change="fetchSubs()" />
+      <div class="staff-submissions" v-loading="staffQueue.current.loading" :aria-busy="staffQueue.current.loading">
+        <p v-if="staffQueue.current.failed" class="queue-empty" role="alert">
+          提交记录加载失败。<el-button type="primary" text @click="fetchSubs()">重试</el-button>
+        </p>
+        <template v-else-if="staffQueue.current.rows.length">
+          <table class="staff-submissions-table" :aria-label="staffQueue.mode === 'pending' ? '待审核提交' : '已审核提交'">
+            <thead><tr>
+              <th scope="col">任务</th><th scope="col">提交人</th><th scope="col">状态</th>
+              <th scope="col">{{ staffQueue.mode === 'pending' ? '提交时间' : '审核时间' }}</th><th scope="col">操作</th>
+            </tr></thead>
+            <tbody>
+              <tr v-for="row in staffQueue.current.rows" :key="row.id">
+                <td class="staff-task">{{ row.taskTitle }}</td>
+                <td class="staff-author">{{ row.name ? row.name + ' (' + row.username + ')' : row.username }} <small>提交 #{{ row.id }}</small></td>
+                <td class="staff-status"><span class="sub-status-tag" :class="row.status?.toLowerCase()">{{ submissionStatusText(row.status) }}</span></td>
+                <td class="staff-date">{{ formatTime(staffQueue.mode === 'pending' ? row.submittedAt : row.reviewedAt) }}</td>
+                <td class="staff-action">
+                  <el-button size="small" type="primary" text @click="openSubDetail(row.id)">{{ staffQueue.mode === 'pending' ? '审核' : '查看' }}</el-button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <el-pagination v-if="staffQueue.current.total > submissionPageSize" class="staff-submission-pages"
+                         :current-page="staffQueue.current.page" :page-size="submissionPageSize" :total="staffQueue.current.total"
+                         :pager-count="5" layout="prev, pager, next" @current-change="fetchSubs" background small />
+        </template>
+        <p v-else-if="!staffQueue.current.loading" class="queue-empty">{{ staffQueue.mode === 'pending' ? '暂无待审核的提交' : '暂无已审核的提交' }}</p>
+      </div>
     </div>
 
     <!-- ==================== Submission Detail Dialog ==================== -->
-    <el-dialog v-model="subDetailVisible" title="提交详情" width="min(800px, 94vw)" top="3vh">
+    <el-dialog v-model="subDetailVisible" :title="canReviewSub ? '审核提交' : '提交详情'" width="min(800px, 94vw)" top="3vh">
+      <p v-if="subDetailLoading" class="queue-empty" role="status">正在加载提交详情…</p>
+      <p v-else-if="subDetailError" class="queue-empty" role="alert">
+        {{ subDetailError }} <el-button type="primary" text @click="openSubDetail(subDetailID)">重试</el-button>
+      </p>
       <div v-if="subDetail" class="sub-detail">
         <el-descriptions :column="2" border size="small">
           <el-descriptions-item label="提交 ID">{{ subDetail.id }}</el-descriptions-item>
@@ -275,13 +287,12 @@
           <div class="sub-comment-text">{{ subDetail.reviewComment }}</div>
         </div>
 
-        <div v-if="awaitingReview(subDetail.status) && subDetail.userId !== authStore.user?.id" class="sub-section">
+        <div v-if="canReviewSub" class="sub-section">
           <div class="sub-section-title">审核操作</div>
           <div class="sub-actions">
-            <el-input v-model="subDetail._comment" placeholder="输入评语" size="small" style="width:200px" />
-            <el-button type="success" size="small" @click="doReview('approved')" :loading="reviewing">通过</el-button>
-            <el-button type="danger" size="small" @click="doReview('rejected')" :loading="reviewing">拒绝</el-button>
-            <el-button type="warning" size="small" @click="doAiReview()" :loading="aiReviewing">🤖 AI 评审</el-button>
+            <el-input v-model="subReviewComment" aria-label="审核评语" placeholder="输入评语" size="small" style="width:200px" />
+            <el-button type="success" size="small" @click="doReview('approved')" :disabled="reviewing">通过</el-button>
+            <el-button type="danger" size="small" @click="doReview('rejected')" :disabled="reviewing">拒绝</el-button>
           </div>
         </div>
       </div>
@@ -361,13 +372,13 @@
             </el-form-item>
           </el-col>
           <el-col :span="8">
-            <el-form-item label="等级">
-              <el-input-number v-model="skillForm.tier" :min="1" :max="5" style="width:100%" />
+            <el-form-item label="难度">
+              <el-input-number v-model="skillForm.tier" :min="1" style="width:100%" />
             </el-form-item>
           </el-col>
           <el-col :span="8">
             <el-form-item label="所属地图 ID">
-              <el-input-number v-model="skillForm.mapId" :min="1" :max="7" style="width:100%" />
+              <el-input-number v-model="skillForm.mapId" :min="1" style="width:100%" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -445,8 +456,12 @@ import { submissionStatusText, awaitingReview } from '../submissionStatus'
 import { ref, onMounted, reactive, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import { adminApi } from '../api/admin'
 import { tasksApi } from '../api/tasks'
+import { reviewPages, loadSubmissionPage, submissionPageSize } from '../submissionPages'
+import ReviewQueueSwitch from '../components/ReviewQueueSwitch.vue'
 import { useAuthStore } from '../store/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import 'element-plus/es/components/message/style/css'
+import 'element-plus/es/components/message-box/style/css'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 
@@ -456,7 +471,7 @@ const activeTab = ref(isSuperAdmin.value ? 'skills' : 'submissions')
 const skillsList = ref([])
 const tasksList = ref([])
 const usersList = ref([])
-const subsList = ref([])
+const staffQueue = reviewPages(adminApi.listSubmissions)
 const inviteCodesList = ref([])
 const taskSkillFilter = ref(null)
 const saving = ref(false)
@@ -733,43 +748,52 @@ async function setLevel(row, level) {
 // --- Submission detail ---
 const subDetailVisible = ref(false)
 const subDetail = ref(null)
+const subDetailID = ref(null)
+const subReviewComment = ref('')
+const subDetailLoading = ref(false)
+const subDetailError = ref('')
 const reviewing = ref(false)
-const aiReviewing = ref(false)
+let subDetailRequest = 0
+const canReviewSub = computed(() =>
+  awaitingReview(subDetail.value?.status) && subDetail.value.userId !== authStore.user?.id
+)
 
 const subMdHtml = computed(() => {
   if (!subDetail.value?.submissionData) return ''
   return DOMPurify.sanitize(marked.parse(subDetail.value.submissionData))
 })
 
-function openSubDetail(row) {
-  subDetail.value = { ...row, _comment: row._comment || '' }
+async function openSubDetail(id) {
+  const request = ++subDetailRequest
+  subDetailID.value = id
+  subDetail.value = null
+  subReviewComment.value = ''
+  subDetailError.value = ''
+  subDetailLoading.value = true
   subDetailVisible.value = true
+  try {
+    const res = await tasksApi.submissionDetail(id)
+    if (request === subDetailRequest && subDetailVisible.value) subDetail.value = res.data.data
+  } catch (error) {
+    if (request === subDetailRequest) subDetailError.value = error.response?.data?.message || '加载详情失败'
+  } finally {
+    if (request === subDetailRequest) subDetailLoading.value = false
+  }
 }
 
 async function doReview(status) {
+  if (reviewing.value || !canReviewSub.value) return
+  const id = subDetail.value.id
   reviewing.value = true
   try {
-    await tasksApi.review(subDetail.value.id, { status, reviewComment: subDetail.value._comment || undefined })
+    await tasksApi.review(id, { status, reviewComment: subReviewComment.value || undefined })
     ElMessage.success(status === 'approved' ? '已通过' : '已拒绝')
-    subDetailVisible.value = false
-    fetchSubs()
+    if (id === subDetailID.value) subDetailVisible.value = false
+    await loadSubmissionPage(staffQueue.pending)
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '审核失败')
   } finally { reviewing.value = false }
 }
-
-async function doAiReview() {
-  aiReviewing.value = true
-  try {
-    await tasksApi.aiReview(subDetail.value.id)
-    ElMessage.success('AI 评审完成')
-    subDetailVisible.value = false
-    fetchSubs()
-  } catch (e) {
-    ElMessage.error(e.response?.data?.message || 'AI 评审失败')
-  } finally { aiReviewing.value = false }
-}
-
 
 async function fetchSkills() {
   const res = await adminApi.listLevels()
@@ -815,9 +839,8 @@ async function fetchUsers(page = userPage.value) {
     if (request === userListRequest) usersLoading.value = false
   }
 }
-async function fetchSubs() {
-  const res = await adminApi.listSubmissions()
-  subsList.value = (res.data.data || []).map(s => ({ ...s, _comment: '' }))
+function fetchSubs(page) {
+  return loadSubmissionPage(staffQueue.current, page)
 }
 
 async function removeUser(row) {
@@ -948,7 +971,7 @@ async function fetchMentorGraph() {
   if (graphLoading.value) return
   graphLoading.value = true
   try {
-    const [res, charts] = await Promise.all([adminApi.getMentorshipGraph(), import('echarts')])
+    const [res, charts] = await Promise.all([adminApi.getMentorshipGraph(), import('../charts/mentorshipGraph')])
     echarts = charts
     const data = res.data.data || { nodes: [], edges: [] }
     rawNodes = data.nodes || []
@@ -1043,6 +1066,7 @@ function highlightLineage() { renderGraph() }
 function resizeChart() { chart && chart.resize() }
 
 watch(activeTab, tab => {
+  if (tab === 'submissions') fetchSubs()
   if (tab === 'mentorGraph') {
     if (!chart) fetchMentorGraph()
     else nextTick(resizeChart)
@@ -1055,9 +1079,8 @@ onBeforeUnmount(() => {
 })
 
 onMounted(async () => {
-  const requests = [fetchSubs()]
-  if (isSuperAdmin.value) requests.push(fetchSkills(), fetchUsers(), fetchInviteCodes())
-  await Promise.all(requests)
+  if (isSuperAdmin.value) await Promise.all([fetchSkills(), fetchUsers(), fetchInviteCodes()])
+  else await fetchSubs()
 })
 </script>
 
@@ -1077,6 +1100,29 @@ onMounted(async () => {
 .admin-tabs :deep(.el-tabs__item) { height: 45px; }
 .admin-tabs :deep(.el-tabs__content) { display: none; }
 .admin-workspace { min-width: 0; padding: clamp(12px, 1.6vw, 24px); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
+.staff-submissions { min-height: 76px; }
+.staff-submissions-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; overflow-wrap: anywhere; }
+.staff-submissions-table th, .staff-submissions-table td { padding: 12px 10px; }
+.staff-submissions-table th { color: var(--color-text-secondary); background: var(--el-fill-color-light); font-weight: 600; font-size: 13px; }
+.staff-submissions-table td { border-bottom: 1px solid var(--color-border); }
+.staff-task { font-weight: 650; width: 30%; }
+.staff-date, .staff-author small { color: var(--color-text-secondary); font-size: 13px; }
+.staff-author small { display: block; }
+.staff-status, .staff-date, .staff-action { white-space: nowrap; }
+.staff-submission-pages { justify-content: center; margin-top: 14px; }
+.queue-empty { padding: 24px 0; text-align: center; color: var(--color-text-secondary); font-size: 14px; }
+@container staff (max-width: 600px) {
+  .staff-submissions-table, .staff-submissions-table tbody { display: block; }
+  .staff-submissions-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .staff-submissions-table tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 10px; padding: 12px 0; border-bottom: 1px solid var(--color-border); }
+  .staff-submissions-table td { border: 0; padding: 0; width: auto; }
+  .staff-task { grid-area: 1 / 1; }
+  .staff-status { grid-area: 1 / 2; justify-self: end; }
+  .staff-author, .staff-date { grid-column: 1; font-size: 13px; }
+  .staff-author small { display: inline; }
+  .staff-action { grid-area: 2 / 2; justify-self: end; }
+  .staff-action .el-button { min-height: 34px; }
+}
 .directory { overflow: hidden; border: 1px solid var(--color-border); border-radius: 9px; }
 .directory-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
 .directory-table th { padding: 10px 12px; background: #eff3e9; color: #485f50; font-weight: 600; }
@@ -1116,6 +1162,7 @@ onMounted(async () => {
 .lv-badge.lv-1, .lv-badge.lv-2 { background: #f1f5f9; color: #64748b; }
 .lv-badge.lv-3 { background: #fef3c7; color: #915709; }
 .lv-badge.lv-4, .lv-badge.lv-5 { background: #fee2e2; color: #dc2626; }
+.lv-badge.lv-6, .lv-badge.lv-7 { background: #ede4f4; color: #684682; }
 .role-tag { font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
 .role-tag.superadmin { background: #fef3c7; color: #92400e; }
 .preview-text { font-size: 13px; color: #64748b; }

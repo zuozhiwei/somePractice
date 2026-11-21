@@ -17,8 +17,8 @@
       </el-form-item>
       <el-form-item v-if="!isInvited" label="身份" prop="role">
         <el-select v-model="form.role" size="large" style="width:100%">
-          <el-option label="游客" value="EXTERNAL" />
-          <el-option label="内部成员（需邀请码）" value="INTERNAL" />
+          <el-option label="自主学习" value="EXTERNAL" />
+          <el-option label="加入教学团队（需邀请码）" value="INTERNAL" />
         </el-select>
       </el-form-item>
       <el-form-item v-if="!isInvited && form.role === 'INTERNAL'" label="邀请码" prop="teamInviteCode">
@@ -26,17 +26,19 @@
       </el-form-item>
       <el-button type="primary" native-type="submit" :loading="loading" size="large" class="account-submit">注册</el-button>
     </el-form>
-    <p class="account-links"><span>已有账号？ <router-link to="/login">登录</router-link></span></p>
+    <p class="account-links"><span>已有账号？ <router-link :to="{ path: '/login', query: { next: route.query.next } }">登录</router-link></span></p>
   </AccountLayout>
 </template>
 
 <script setup>
 import { reactive, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { afterSignIn } from '../router'
 import { authApi } from '../api/auth'
 import { useAuthStore } from '../store/auth'
 import AccountLayout from '../components/AccountLayout.vue'
 import { ElMessage } from 'element-plus'
+import 'element-plus/es/components/message/style/css'
 
 const route = useRoute()
 const router = useRouter()
@@ -68,7 +70,7 @@ async function register() {
     const res = await authApi.register(form)
     authStore.setAuth(res.data.data.token, res.data.data.user)
     ElMessage.success('注册成功')
-    router.push('/learn')
+    router.push(afterSignIn(route.query.next))
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '注册失败')
   } finally {

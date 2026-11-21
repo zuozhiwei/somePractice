@@ -89,6 +89,7 @@ import { ref, onMounted, reactive } from 'vue'
 import { authApi } from '../api/auth'
 import { tasksApi } from '../api/tasks'
 import { ElMessage } from 'element-plus'
+import 'element-plus/es/components/message/style/css'
 
 const profile = ref(null)
 const submissions = ref([])

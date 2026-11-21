@@ -1,10 +1,10 @@
 <template>
   <div class="account-page">
     <div class="account-sheet">
-      <aside class="account-art" aria-label="技能树学习系统">
-        <div class="account-brand"><TrailMark /><span>Skill Tree</span></div>
-        <div class="atlas-window" aria-hidden="true"></div>
-        <div class="account-name">技能树学习系统</div>
+      <aside class="account-art" aria-label="课后工坊">
+        <RouterLink to="/" class="account-brand"><TrailMark /><span>课后工坊</span></RouterLink>
+        <StudioIllustration class="studio-window" sizes="(max-width: 1040px) 43vw, 440px" desktop-only />
+        <div class="account-name">大学生项目练习空间</div>
       </aside>
       <section class="account-form" aria-labelledby="account-title">
         <header>
@@ -19,6 +19,7 @@
 
 <script setup>
 import TrailMark from './TrailMark.vue'
+import StudioIllustration from '../workshop/StudioIllustration.vue'
 
 defineProps({ title: { type: String, required: true }, description: String })
 </script>
@@ -28,8 +29,8 @@ defineProps({ title: { type: String, required: true }, description: String })
 .account-sheet { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(340px, .93fr); width: min(100%, 980px); overflow: hidden; border: 1px solid #cbd4c8; border-radius: 22px; background: var(--color-surface); box-shadow: 0 20px 66px #2443331a; }
 .account-art { position: relative; isolation: isolate; display: flex; flex-direction: column; justify-content: space-between; padding: 34px; min-height: 530px; overflow: hidden; color: #fff9e7; background: #183d31; }
 .account-art::after { content: ''; position: absolute; z-index: -1; inset: 0; background: linear-gradient(180deg, #183d31 0%, #183d31d6 10%, transparent 33%, transparent 68%, #183d31 99%); }
-.account-brand { display: flex; align-items: center; gap: 10px; font: 600 28px/1 Georgia, serif; }
-.atlas-window { position: absolute; z-index: -2; inset: 0; background: url('../world/assets/adventure-island.webp') 46% 52% / auto 111% no-repeat; filter: saturate(.74); }
+.account-brand { display: flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; font-size: 25px; font-weight: 750; width: fit-content; }
+.studio-window { z-index: -2; }
 .account-name { align-self: flex-start; border-left: 3px solid var(--color-accent); padding-left: 13px; font-size: 17px; font-weight: 600; letter-spacing: .08em; }
 .account-form { align-self: center; width: 100%; padding: clamp(28px, 4.5vw, 62px); }
 .account-form header { margin-bottom: 26px; }
@@ -46,7 +47,7 @@ defineProps({ title: { type: String, required: true }, description: String })
   .account-page { padding: 16px; }
   .account-sheet { grid-template-columns: 1fr; max-width: 460px; border-radius: 15px; }
   .account-art { padding: 16px 22px; min-height: auto; }
-  .atlas-window { background: none; }
+  .studio-window { display: none; }
   .account-art::after { display: none; }
   .account-brand { font-size: 23px; gap: 8px; }
   .account-brand .trail-mark { width: 31px; height: 31px; }

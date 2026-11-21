@@ -81,6 +81,7 @@ func handler(db *sql.DB) http.Handler {
 	})
 	// Unknown API calls must never fall through to a future SPA handler.
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
 		http.Error(w, "API not implemented", http.StatusNotImplemented)
 	})
 	mux.Handle("/", frontend.Handler())

@@ -215,6 +215,9 @@ func TestLoginAndLearningFlow(t *testing.T) {
 	if w.Code != 200 || !bytes.Contains(w.Body.Bytes(), []byte(`"submissionStatus":"NONE"`)) {
 		t.Fatalf("detail %d %s", w.Code, w.Body)
 	}
+	if !bytes.Contains(w.Body.Bytes(), []byte(`"nextLevel":null`)) {
+		t.Fatalf("unexpected sequel before completion: %s", w.Body)
+	}
 	w = call(h, "POST", "/api/tasks/1/submit", `{"submissionData":"my work"}`, token)
 	if w.Code != 200 {
 		t.Fatalf("submit %d %s", w.Code, w.Body)
@@ -232,6 +235,10 @@ func TestLoginAndLearningFlow(t *testing.T) {
 	}
 	if _, err := db.Exec(`UPDATE user_level_progress SET status='COMPLETED',progress=100 WHERE user_id=1 AND level_id=1`); err != nil {
 		t.Fatal(err)
+	}
+	w = call(h, "GET", "/api/levels/1", "", token)
+	if w.Code != 200 || !bytes.Contains(w.Body.Bytes(), []byte(`"nextLevel":{"id":2,"name":"Locked"}`)) {
+		t.Fatalf("missing unlocked milestone across chapters: %d %s", w.Code, w.Body)
 	}
 	w = call(h, "GET", "/api/levels/2", "", token)
 	if w.Code != 200 {

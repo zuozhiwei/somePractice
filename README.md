@@ -1,8 +1,10 @@
-# 智阶学习系统（Go + SQLite）
+# 课后工坊（Vue + Go + SQLite）
 
 当前生产环境已于 2026-11-01 迁至公网服务器；实际运行方式、备份及运维注意事项见 `docs/cloud-production-2026-11-01.md`。此前局域网切换记录见 `docs/production-2026-11-01.md`。
 
-这是系统后续维护的主项目。Vue 前端源码位于 `web/`，构建后嵌入 Go 程序；服务使用本地 SQLite，生产环境推荐单机 systemd。旧 Java 项目保留为迁移数据源，正式切换后不要同时向两套系统写入。
+课后工坊是面向大学生的项目练习空间。访客可在首页查看项目路线。登录后从项目世界地图选择关卡。成果册可回看通过的任务，完成全章后点亮章节印章。项目路线、章节目录和技能树也可单独查看。
+
+Vue 前端源码位于 `web/`，构建后嵌入 Go 程序。平台服务使用本地 SQLite，生产环境推荐单机 systemd。旧 Java 项目保留为迁移数据源，正式切换后不要同时向两套系统写入。
 
 ## 当前能力
 
@@ -16,9 +18,24 @@
 
 使用项目 `go.mod` 指定的 Go 版本和 Node.js。Windows 上运行 `./build.ps1`，会安装前端依赖、构建页面并生成 `bin/` 下的 Linux amd64 可执行文件。Linux 上执行 `sh build.sh`，默认按当前 Linux 架构构建；部署前用 `uname -m` 确认服务器架构。产物包括 `skilltree`、`skilltree-migrate`、`skilltree-repair`、`skilltree-backup` 和 `skilltree-curriculum`。前端改动后必须重新构建，才能更新嵌入的页面。
 
+### 本地预览
+
+在项目根目录初始化一个独立的练习库，再启动服务。
+
+```sh
+mkdir -p data
+go run ./cmd/curriculum -db data/workshop-local.db -init -apply
+SKILLTREE_DB=data/workshop-local.db SKILLTREE_LISTEN=127.0.0.1:8080 \
+  SKILLTREE_JWT_SECRET="$(openssl rand -base64 32)" go run ./cmd/server
+```
+
+初始化只需运行一次。另开终端运行 `cd web && npm ci && npm run dev`，打开 Vite 显示的本地地址。可在网页上注册自主学习账号。
+
 ## 课程版本与发布
 
-课程源文件位于 `internal/curriculum/`。课程由 8 章、46 关和 179 项任务组成，每关有操作教程，每项任务有独立的提交要求和评分标准。学生从浏览器内的个人看板起步，逐步加入后端、账户隔离、测试、性能优化、部署和工程交接。世界地图可以自由探访，学习进度以关卡先修条件和任务审核结果为准。
+课程源文件位于 `internal/curriculum/`，当前版本为 `campus-treehole-2026-11-v4`。8 章、46 关、179 项任务围绕同一个匿名互动社区「校园树洞」。学生在同一个仓库中扩展帖子列表、草稿、共享 API、匿名投稿、评论、回复提醒和举报处理，再完成性能验证、试运行与正式发布。最后一次提交包含自己发布的访问链接和同学试用的反馈。学生作品使用 Java 17、Spring Boot 和 MySQL 作为后端练习路线，前两章使用本地编辑器和浏览器。第一关从建文件夹、显示文件扩展名开始。学生先练习查找 7-Zip 官网与准备压缩工具，再从官网下载并安装 VS Code，最后分别验收 ZIP 压缩和在新目录解压。进入关卡直接打开当前要做的任务。概念和代码示例收在「本关参考」，第一关先认识 HTML，再编辑并刷新自己的网页。任务按电脑系统显示步骤，初次使用默认 Windows。
+
+课程 Markdown 中，单独一行的 `:::windows` 或 `:::mac` 开始系统专属内容，单独一行的 `:::` 结束。共用步骤直接写在块外。多个系统可用空格并列，例如 `:::mac linux`。远程服务器命令写在共用正文，两种电脑都需要阅读。
 
 部署人员在系统备份恢复成功后，以服务账号运行以下命令。第一条在事务中完整试跑并回滚；第二条发布本版。已发布的同一版本再次运行会保留教师在后台的后续编辑。程序发现内置课程内容与迁移基线冲突时会报出编号，整次课程更新回滚。
 
@@ -27,7 +44,7 @@ sudo -u skilltree /opt/skilltree/skilltree-curriculum -db /var/lib/skilltree/ski
 sudo -u skilltree /opt/skilltree/skilltree-curriculum -db /var/lib/skilltree/skilltree.db -apply
 ```
 
-全新安装可用 `skilltree-curriculum -db /path/to/new.db -init -apply` 建立业务结构并安装课程。已有教学记录的数据库直接使用上面的更新命令。运行中的 Web 服务按数据库内容提供课程，发版工具仅在发布时运行。验收入口和本期核对范围见 [江湖地图与全栈课程验收](docs/fullstack-acceptance.md)。
+全新安装可用 `skilltree-curriculum -db /path/to/new.db -init -apply` 建立业务结构并安装课程。已有教学记录的数据库直接使用上面的更新命令。课程版本升级沿用已有的关卡、教程与任务编号，也保留对应的进度、提交和评分。旧版已通过的任务沿用通过状态，原提交正文仍记录当时的作品。已在旧版开始的同学可以把原有列表、存储和接口代码接着用，逐步将原业务数据替换为帖子和评论。运行中的 Web 服务按数据库内容提供课程，发版工具仅在发布时运行。
 
 ## 数据迁移
 
@@ -48,6 +65,8 @@ sudo -u skilltree /opt/skilltree/skilltree-curriculum -db /var/lib/skilltree/ski
    - `DEEPSEEK_API_KEY`、可选 `DEEPSEEK_MODEL`：供 AI 审核使用；`SMTP_HOST`、`SMTP_PORT`、`SMTP_USERNAME`、`SMTP_PASSWORD`：供密码重置使用。SMTP 的 465 端口在连接时直接启用 TLS，其他端口要求 STARTTLS（默认 587）。阿里邮箱可使用 `smtp.qiye.aliyun.com:465` 和三方客户端安全密码。缺失配置时对应功能返回明确错误，其他功能仍可使用。
 3. 以 root 运行 `sh deploy/install.sh`。脚本创建专用服务用户、安装文件、启动 `skilltree.service` 和每日备份 timer；不会自动从旧系统迁移数据库。
 4. `systemctl status skilltree` 查看服务，`journalctl -u skilltree -f` 查看日志；用 `curl http://127.0.0.1:8081/healthz` 检查健康状态。默认只监听本机；局域网直连可设置 `SKILLTREE_LISTEN=0.0.0.0:8081` 并配置防火墙。公网访问应配置域名及 HTTPS 反向代理，代理需支持 WebSocket；不要把明文 HTTP 暴露到公网。
+
+Go 服务会为支持 gzip 的客户端压缩网页文本资源和大体量课程读取响应。Nginx 模板将压缩协商交给 Go，透传 `Accept-Encoding`。带内容哈希的资源可长期缓存，网页入口和其他静态文件通过 ETag 重验证，API 响应禁止缓存。登录、账号恢复和聊天仍使用各自原有的传输方式。
 
 ## 备份与恢复
 

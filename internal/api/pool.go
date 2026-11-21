@@ -14,7 +14,12 @@ import (
 	"time"
 )
 
-const submissionSelect = `SELECT s.id,s.user_id,s.task_id,COALESCE(u.username,''),u.name,COALESCE(t.title,''),s.status,s.submission_data,s.ai_feedback,s.review_comment,s.submitted_at,s.reviewed_at FROM user_task_submissions s LEFT JOIN users u ON u.id=s.user_id LEFT JOIN tasks t ON t.id=s.task_id `
+const submissionFields = `SELECT s.id,s.user_id,s.task_id,COALESCE(u.username,''),u.name,COALESCE(t.title,''),s.status,`
+const submissionFrom = ` FROM user_task_submissions s LEFT JOIN users u ON u.id=s.user_id LEFT JOIN tasks t ON t.id=s.task_id `
+const submissionSelect = submissionFields + `s.submission_data,s.ai_feedback,s.review_comment,s.submitted_at,s.reviewed_at` + submissionFrom
+const pendingSubmissions = `s.status IN ('PENDING','AI_REVIEWED')`
+const reviewedSubmissions = `s.status IN ('APPROVED','REJECTED')`
+const submittedOrder = ` ORDER BY s.submitted_at DESC,s.id DESC`
 
 func (a *App) submissionRow(rows *sql.Rows) (map[string]any, error) {
 	var id, uid, tid int64
@@ -65,48 +70,85 @@ func pagination(r *http.Request) (int, int, error) {
 	}
 	return page, size, nil
 }
-func (a *App) submissionPool(w http.ResponseWriter, r *http.Request, user int64, kind string) {
+func validSubmissionQueue(queue string) bool {
+	return queue == "" || queue == "pending" || queue == "reviewed"
+}
+
+func (a *App) writeSubmissionPage(w http.ResponseWriter, r *http.Request, where string, args []any, queue string) {
 	page, size, err := pagination(r)
 	if err != nil {
 		bad(w, "分页参数无效")
 		return
 	}
-	var where string
-	var args []any
-	if kind == "apprentice" {
-		where = `EXISTS(SELECT 1 FROM mentorships m WHERE m.mentor_id=? AND m.apprentice_id=s.user_id AND m.status='ACTIVE') AND s.id=(SELECT x.id FROM user_task_submissions x WHERE x.user_id=s.user_id AND x.task_id=s.task_id ORDER BY x.submitted_at DESC,x.id DESC LIMIT 1)`
-		args = []any{user}
-	} else {
-		where = `EXISTS(SELECT 1 FROM users reviewer JOIN users student ON student.id=s.user_id WHERE reviewer.id=? AND reviewer.role IN ('INTERNAL','TEACHER','SUPERADMIN') AND student.role='EXTERNAL' AND ((s.status IN ('PENDING','AI_REVIEWED') AND COALESCE(reviewer.level,0)>COALESCE(student.level,0)) OR s.reviewer_id=reviewer.id))`
-		args = []any{user}
-	}
-	var total int
-	if err = a.DB.QueryRowContext(r.Context(), `SELECT count(*) FROM user_task_submissions s WHERE `+where, args...).Scan(&total); err != nil {
-		fail(w)
-		return
-	}
-	args = append(args, size, page*size)
-	rows, err := a.DB.QueryContext(r.Context(), submissionSelect+`WHERE `+where+` ORDER BY s.submitted_at DESC,s.id DESC LIMIT ? OFFSET ?`, args...)
+	out, total, err := a.submissionPage(r.Context(), where, args, page, size, queue)
 	if err != nil {
 		fail(w)
 		return
+	}
+	ok(w, map[string]any{"content": out, "total": total})
+}
+
+func (a *App) submissionPage(ctx context.Context, where string, args []any, page, size int, queue string) ([]any, int, error) {
+	order := submittedOrder
+	switch queue {
+	case "pending":
+		where += " AND " + pendingSubmissions
+	case "reviewed":
+		where += " AND " + reviewedSubmissions
+		order = ` ORDER BY COALESCE(s.reviewed_at,s.submitted_at) DESC,s.id DESC`
+	}
+	// Keep the count and rows on the same snapshot so they agree across approvals.
+	tx, err := a.DB.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return nil, 0, err
+	}
+	defer tx.Rollback()
+	var total int
+	if err = tx.QueryRowContext(ctx, `SELECT count(*)`+submissionFrom+`WHERE `+where, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	// Older callers still get inline feedback. The queue opens full detail on demand.
+	projection := submissionFields + `NULL,s.ai_feedback,s.review_comment,s.submitted_at,s.reviewed_at` + submissionFrom
+	if queue != "" {
+		projection = submissionFields + `NULL,NULL,NULL,s.submitted_at,s.reviewed_at` + submissionFrom
+	}
+	rows, err := tx.QueryContext(ctx, projection+`WHERE `+where+order+` LIMIT ? OFFSET ?`, append(args, size, page*size)...)
+	if err != nil {
+		return nil, 0, err
 	}
 	defer rows.Close()
 	out := []any{}
 	for rows.Next() {
 		v, e := a.submissionRow(rows)
 		if e != nil {
-			fail(w)
-			return
+			return nil, 0, e
 		}
 		delete(v, "submissionData")
+		if queue != "" {
+			delete(v, "aiFeedback")
+			delete(v, "reviewComment")
+		}
 		out = append(out, v)
 	}
-	if rows.Err() != nil {
-		fail(w)
+	return out, total, rows.Err()
+}
+
+func (a *App) submissionPool(w http.ResponseWriter, r *http.Request, user int64, kind string) {
+	queue := r.URL.Query().Get("queue")
+	if !validSubmissionQueue(queue) {
+		bad(w, "审核队列无效")
 		return
 	}
-	ok(w, map[string]any{"content": out, "total": total})
+	var where string
+	if kind == "apprentice" {
+		where = `EXISTS(SELECT 1 FROM mentorships m WHERE m.mentor_id=? AND m.apprentice_id=s.user_id AND m.status='ACTIVE')`
+		if queue != "reviewed" {
+			where += ` AND s.id=(SELECT x.id FROM user_task_submissions x WHERE x.user_id=s.user_id AND x.task_id=s.task_id ORDER BY x.submitted_at DESC,x.id DESC LIMIT 1)`
+		}
+	} else {
+		where = `EXISTS(SELECT 1 FROM users reviewer JOIN users student ON student.id=s.user_id WHERE reviewer.id=? AND reviewer.role IN ('INTERNAL','TEACHER','SUPERADMIN') AND student.role='EXTERNAL' AND ((` + pendingSubmissions + ` AND COALESCE(reviewer.level,0)>COALESCE(student.level,0)) OR s.reviewer_id=reviewer.id))`
+	}
+	a.writeSubmissionPage(w, r, where, []any{user}, queue)
 }
 func (a *App) apprenticeSubmissions(w http.ResponseWriter, r *http.Request, user int64) {
 	a.submissionPool(w, r, user, "apprentice")

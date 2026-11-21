@@ -39,6 +39,7 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import 'element-plus/es/components/message/style/css'
 import AccountLayout from '../components/AccountLayout.vue'
 import { authApi } from '../api/auth'
 

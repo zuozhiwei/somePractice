@@ -201,10 +201,6 @@ func completeLevel(ctx context.Context, tx *sql.Tx, user, level int64, now strin
 		if _, err = tx.ExecContext(ctx, `UPDATE users SET level=? WHERE id=?`, newLevel, user); err != nil {
 			return err
 		}
-		_, err = tx.ExecContext(ctx, `UPDATE mentorships SET status='ENDED' WHERE status='ACTIVE' AND ((mentor_id=? AND EXISTS(SELECT 1 FROM users WHERE id=apprentice_id AND COALESCE(level,0)>=?)) OR (apprentice_id=? AND EXISTS(SELECT 1 FROM users WHERE id=mentor_id AND COALESCE(level,0)<=?)))`, user, newLevel, user, newLevel)
-		if err != nil {
-			return err
-		}
 	}
 	return nil
 }

@@ -106,18 +106,20 @@ export function buildAtlas(chapters) {
     atlas.adjacent.get(b.id).push({ id: a.id, edge })
   }
   const ports = []
+  let number = 0
   for (const region of atlas.regions) {
     const { index, chapterId, x, y, rings } = region
     const hub = addNode({ id: 'hub:' + chapterId, chapterId, kind: 'hub', x, y: y + 6 })
-    let previous = [hub], number = 0
+    let previous = [hub]
     for (const [ring, group] of rings.entries()) {
       const nodes = group.map((level, i) => {
         const angle = 2.57 + TAU * i / group.length + .13 * Math.sin(index * 4 + i * 3) + (ring % 2) * .3
         const [offsetX, offsetY] = ring === 0 && group.length === 6
           ? settlementRoads[index % settlementRoads.length][i]
           : [(135 + 90 * ring) * Math.cos(angle), (83 + 58 * ring) * Math.sin(angle)]
+        number++
         return addNode({
-          id: 'level:' + level.id, levelId: level.id, chapterId, kind: 'level', number: ++number,
+          id: 'level:' + level.id, levelId: level.id, chapterId, kind: 'level', number: level.levelNumber ?? number,
           x: x + offsetX, y: y + offsetY,
         })
       })

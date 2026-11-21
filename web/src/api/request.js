@@ -17,10 +17,13 @@ request.interceptors.request.use(config => {
 request.interceptors.response.use(
   res => res,
   err => {
-    if (err.response?.status === 401) {
+    if (err.response?.status === 401 && err.config?.headers?.Authorization) {
       const authStore = useAuthStore()
-      authStore.logout()
-      window.location.href = '/login'
+      if (authStore.token && err.config.headers.Authorization === 'Bearer ' + authStore.token) {
+        const next = window.location.pathname + window.location.search + window.location.hash
+        authStore.logout()
+        window.location.replace('/login?' + new URLSearchParams({ next }))
+      }
     }
     return Promise.reject(err)
   }

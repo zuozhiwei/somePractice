@@ -16,9 +16,21 @@ export const useChatStore = defineStore('chat', () => {
   let delay = 2000
 
   async function refreshUnread() {
-    try { totalUnread.value = (await chatApi.unread()).data.data || 0 } catch (_) { /* retry later */ }
+    const token = authStore.token
+    if (!token) return
+    try {
+      const response = await chatApi.unread()
+      if (authStore.token === token) totalUnread.value = response.data.data || 0
+    } catch (_) { /* retry later */ }
+  }
+  function refreshVisibleUnread() {
+    if (!document.hidden) refreshUnread()
   }
   async function fetchLatest(conversationId, messageId) {
+    if (!handlers.size) {
+      refreshVisibleUnread()
+      return
+    }
     try {
       const res = await chatApi.messages(conversationId, 0, 50)
       const messages = (res.data.data?.content || []).slice().reverse()
@@ -37,7 +49,13 @@ export const useChatStore = defineStore('chat', () => {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
     const ws = new WebSocket(`${proto}//${location.host}/ws?token=${encodeURIComponent(authStore.token)}`)
     socket = ws
-    ws.onopen = () => { if (socket === ws) { connected.value = true; delay = 2000; refreshUnread() } }
+    const reconnect = pollTimer !== null
+    ws.onopen = () => {
+      if (socket !== ws) return
+      connected.value = true
+      delay = 2000
+      if (reconnect) refreshVisibleUnread()
+    }
     ws.onmessage = e => {
       try { const event = JSON.parse(e.data); if (event.type === 'changed') fetchLatest(event.conversationId, event.messageId) } catch (_) { /* malformed event */ }
     }
@@ -50,10 +68,15 @@ export const useChatStore = defineStore('chat', () => {
         delay = Math.min(delay * 2, 30000)
       }
     }
-    if (!pollTimer) pollTimer = setInterval(refreshUnread, 30000)
+    if (!pollTimer) {
+      refreshVisibleUnread()
+      document.addEventListener('visibilitychange', refreshVisibleUnread)
+      pollTimer = setInterval(refreshVisibleUnread, 30000)
+    }
   }
   function disconnect() {
     stopped = true
+    document.removeEventListener('visibilitychange', refreshVisibleUnread)
     clearTimeout(reconnectTimer); clearInterval(pollTimer)
     reconnectTimer = null; pollTimer = null
     if (socket) socket.close()

@@ -1,5 +1,5 @@
 <template>
-  <AccountLayout title="登录" description="登录后，从上次的关卡继续。">
+  <AccountLayout title="欢迎回到工坊" description="登录后继续你的校园项目。">
     <el-form ref="formRef" :model="form" :rules="rules" label-position="top" @submit.prevent="login">
       <el-form-item label="用户名" prop="username">
         <el-input v-model="form.username" name="username" autocomplete="username" placeholder="请输入用户名" size="large" />
@@ -10,7 +10,7 @@
       <el-button type="primary" native-type="submit" :loading="loading" size="large" class="account-submit">登录</el-button>
     </el-form>
     <div class="account-links">
-      <span>还没有账号？ <router-link to="/register">注册</router-link></span>
+      <span>还没有账号？ <router-link :to="{ path: '/register', query: { next: route.query.next } }">注册</router-link></span>
       <router-link to="/forgot-password">忘记密码？</router-link>
     </div>
   </AccountLayout>
@@ -18,13 +18,16 @@
 
 <script setup>
 import { reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { afterSignIn } from '../router'
 import { authApi } from '../api/auth'
 import { useAuthStore } from '../store/auth'
 import AccountLayout from '../components/AccountLayout.vue'
 import { ElMessage } from 'element-plus'
+import 'element-plus/es/components/message/style/css'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const formRef = ref(null)
 const loading = ref(false)
@@ -44,7 +47,7 @@ async function login() {
     const res = await authApi.login(form)
     authStore.setAuth(res.data.data.token, res.data.data.user)
     ElMessage.success('登录成功')
-    router.push('/learn')
+    router.push(afterSignIn(route.query.next))
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '登录失败')
   } finally {

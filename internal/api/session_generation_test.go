@@ -15,7 +15,7 @@ import (
 
 func TestRegistrationSessionGenerationsAndInvitations(t *testing.T) {
 	db, h := testApp(t)
-	recoverySQL(t, db, `UPDATE users SET role='SUPERADMIN' WHERE id=1;
+	recoverySQL(t, db, `UPDATE users SET role='SUPERADMIN',level=1 WHERE id=1;
 		INSERT INTO teams(id,name) VALUES(1,'Course team');
 		INSERT INTO invite_codes(code,team_id,active,expires_at) VALUES('TEAM',1,1,'2099-01-01')`)
 	admin := loginToken(t, h)
@@ -65,6 +65,7 @@ func TestRegistrationSessionGenerationsAndInvitations(t *testing.T) {
 	}
 
 	var oldInvite string
+	learningResponse(t, h, "PUT", "/api/admin/users/"+strconv.FormatInt(sameID, 10)+"/level?level=1", "", admin, nil)
 	learningResponse(t, h, "GET", "/api/mentorship/invite-link", "", fresh, &oldInvite)
 	learningResponse(t, h, "DELETE", "/api/admin/users/"+strconv.FormatInt(sameID, 10), "", admin, nil)
 	register("learner", "INTERNAL", "teamInviteCode", "TEAM")

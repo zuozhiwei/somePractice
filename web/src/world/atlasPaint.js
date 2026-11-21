@@ -257,7 +257,7 @@ function paintShips(ctx, atlas, contours) {
 }
 
 /** Paint only the static world. The UI positions interactive markers and the moving traveler above it. */
-export function paintAtlas(canvas, atlas, {padX = 0, padY = 0} = {}) {
+export function paintAtlas(canvas, atlas, {padX = 0, padY = 0, trailNodes = new Set()} = {}) {
   const ctx = canvas.getContext('2d')
   if (!ctx || !atlas.width || !atlas.height) return
   ctx.save()
@@ -282,6 +282,14 @@ export function paintAtlas(canvas, atlas, {padX = 0, padY = 0} = {}) {
   for (const edge of atlas.edges.filter(e => e.crossing)) {
     const a = atlas.nodeById.get(edge.from), b = atlas.nodeById.get(edge.to)
     paintCrossing(ctx,edge,coasts.get(a.chapterId),coasts.get(b.chapterId),(a.chapterId+b.chapterId)%3===0)
+  }
+  // Colour surveyed paths only after the surrounding coursework has been passed.
+  for (const edge of atlas.edges) {
+    if (!trailNodes.has(edge.from) || !trailNodes.has(edge.to)) continue
+    stroke(ctx, edge.points, '#527556', 4.0)
+    ctx.setLineDash([3, 7])
+    stroke(ctx, edge.points, '#f6e49a', 1.8)
+    ctx.setLineDash([])
   }
   for (const [i, region] of atlas.regions.entries()) {
     const roads = atlas.edges.filter(e => atlas.nodeById.get(e.from).chapterId===region.chapterId || atlas.nodeById.get(e.to).chapterId===region.chapterId)

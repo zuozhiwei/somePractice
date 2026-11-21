@@ -78,22 +78,15 @@
 import { ref, onMounted, computed } from 'vue'
 import { leaderboardApi } from '../api/leaderboard'
 import { mentorshipApi } from '../api/mentorship'
-import { useAuthStore } from '../store/auth'
 import { ElMessage } from 'element-plus'
+import 'element-plus/es/components/message/style/css'
 import { InfoFilled } from '@element-plus/icons-vue'
 
-const authStore = useAuthStore()
 const list = ref([])
 const loading = ref(false)
 const page = ref(1)
 const total = ref(0)
 const leaderXp = ref(0)
-// 当前用户已有的徒弟/师傅/申请关系（判断能否拜师）
-const myApprenticeIds = ref([])
-const myMentorIds = ref([])
-const myPendingTargetIds = ref([])
-const mySentTargetIds = ref([])
-
 // 拜师对话框
 const mentorDialogVisible = ref(false)
 const selectedUser = ref(null)
@@ -135,31 +128,8 @@ async function fetchData() {
   }
 }
 
-/** 拉取当前用户的师徒关系，用于判断"能否拜某人为师" */
-async function fetchRelations() {
-  try {
-    const res = await mentorshipApi.my()
-    const d = res.data.data
-    myApprenticeIds.value = (d?.apprentices || []).map(a => a.userId)
-    myMentorIds.value = (d?.mentors || []).map(m => m.userId)
-    myPendingTargetIds.value = (d?.pending || []).map(p => p.userId)
-    mySentTargetIds.value = (d?.sentRequests || []).map(s => s.userId)
-  } catch (e) { console.error(e) }
-}
-
-/** 判断是否可以为 user 显示拜师按钮：本人 / 自己的徒弟 / 已有关系 / 外部成员 都不显示 */
 function canRequestMentor(user) {
-  const me = authStore.user
-  if (!me) return false
-  if (me.role === 'EXTERNAL') return false
-  if (me.role !== 'INTERNAL' && me.role !== 'TEACHER' && me.role !== 'SUPERADMIN') return false
-  const uid = user.userId ?? user.id
-  if (uid === me.id) return false
-  if (myApprenticeIds.value.includes(uid)) return false
-  if (myMentorIds.value.includes(uid)) return false
-  if (myPendingTargetIds.value.includes(uid)) return false
-  if (mySentTargetIds.value.includes(uid)) return false
-  return true
+  return user?.canRequestMentor === true
 }
 
 function openMentorDialog(user) {
@@ -169,21 +139,22 @@ function openMentorDialog(user) {
 }
 
 async function sendMentorRequest() {
-  if (!selectedUser.value) return
+  const mentor = selectedUser.value
+  if (!canRequestMentor(mentor) || requestLoading.value) return
   requestLoading.value = true
   try {
-    await mentorshipApi.request(selectedUser.value.userId)
+    await mentorshipApi.request(mentor.userId)
+    mentor.canRequestMentor = false
     ElMessage.success('拜师申请已发送，等待对方通过')
     mentorDialogVisible.value = false
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '申请失败')
+    mentorDialogVisible.value = false
+    await fetchData()
   } finally { requestLoading.value = false }
 }
 
-onMounted(() => {
-  fetchData()
-  fetchRelations()
-})
+onMounted(fetchData)
 </script>
 
 <style scoped>

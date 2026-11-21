@@ -117,7 +117,8 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if mentor != nil {
-		if err = tx.QueryRow(`SELECT count(*) FROM users u LEFT JOIN login_versions v ON v.user_id=u.id WHERE u.id=? AND COALESCE(v.version,0)=? AND u.role IN ('INTERNAL','TEACHER','SUPERADMIN')`, *mentor, mentorVersion).Scan(&count); err != nil || count == 0 {
+		if err = tx.QueryRow(`SELECT count(*) FROM users u LEFT JOIN login_versions v ON v.user_id=u.id
+			WHERE u.id=? AND COALESCE(v.version,0)=? AND u.role IN ('INTERNAL','TEACHER','SUPERADMIN') AND COALESCE(u.level,0)>0`, *mentor, mentorVersion).Scan(&count); err != nil || count == 0 {
 			bad(w, "邀请链接已失效，请联系师父重新获取")
 			return
 		}

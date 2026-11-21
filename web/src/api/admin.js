@@ -21,7 +21,7 @@ export const adminApi = {
   setLevel: (id, level) => request.put(`/admin/users/${id}/level`, null, { params: { level } }),
   deleteUser: id => request.delete(`/admin/users/${id}`),
   // Submissions
-  listSubmissions: () => request.get('/admin/submissions'),
+  listSubmissions: (page, size, queue) => request.get('/admin/submissions', { params: { page, size, queue } }),
   // Invite Codes
   listInviteCodes: () => request.get('/admin/invite-codes'),
   createInviteCode: data => request.post('/admin/invite-codes', data),

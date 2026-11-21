@@ -2,8 +2,7 @@
   <div class="page" v-loading="loading">
     <h1 class="page-title">{{ isExternal ? '我的提交记录' : '师徒关系' }}</h1>
 
-    <!-- ========== Apply for mentor (compact, top; 外部成员不可拜师) ========== -->
-    <div v-if="!isExternal" class="section-card" style="margin-bottom:20px">
+    <div v-if="canApplyForMentor" class="section-card" style="margin-bottom:20px">
       <div class="section-header">申请师傅</div>
       <div class="section-body">
         <div class="request-row">
@@ -15,18 +14,18 @@
                      no-data-text="输入关键词开始搜索"
                      size="default" class="mentor-search" value-key="id">
             <el-option v-for="u in searchResults" :key="u.id"
-                       :label="`${u.name || u.username}（${levelShort(u.level)} · ${roleText(u.role)} · ${u.totalXp} XP）`"
+                       :label="`${u.name || u.username}（Lv.${u.level} · ${roleText(u.role)}）`"
                        :value="u.id">
               <div class="search-option">
                 <span class="search-option-name">{{ u.name || u.username }}</span>
-                <span class="search-option-meta">{{ levelShort(u.level) }} · {{ roleText(u.role) }} · {{ u.totalXp }} XP</span>
+                <span class="search-option-meta">Lv.{{ u.level }} · {{ roleText(u.role) }} · {{ u.totalXp }} XP</span>
               </div>
             </el-option>
             <template #empty>
-              <div class="search-empty">暂无匹配用户，试试输入完整关键词</div>
+              <div class="search-empty">可搜索等级高于你的成员或教师</div>
             </template>
           </el-select>
-          <el-button type="primary" @click="requestMentor" :loading="requestLoading">发送申请</el-button>
+          <el-button type="primary" @click="requestMentor" :loading="requestLoading" :disabled="!mentorId">发送申请</el-button>
         </div>
       </div>
     </div>
@@ -60,9 +59,9 @@
           <el-avatar :size="36" class="person-avatar apprentice">{{ p.username?.charAt(0)?.toUpperCase() }}</el-avatar>
           <div class="person-info">
             <div class="person-name">{{ p.name || p.username }}</div>
-            <div class="person-meta">{{ formatTime(p.createdAt) }}</div>
+            <div class="person-meta">{{ formatTime(p.createdAt) }}<span v-if="!p.canApprove"> · 当前等级暂不符合要求</span></div>
           </div>
-          <el-button size="small" type="success" @click="approveRequest(p.id)">通过</el-button>
+          <el-button v-if="p.canApprove" size="small" type="success" @click="approveRequest(p.id)">通过</el-button>
           <el-button size="small" type="danger" @click="rejectRequest(p.id)">拒绝</el-button>
         </div>
       </div>
@@ -193,52 +192,58 @@
     </div>
 
     <section class="section-card submissions-card" aria-label="提交记录">
-      <el-tabs v-model="subTab" @tab-change="onSubTabChange">
+      <el-tabs v-model="subTab">
         <el-tab-pane v-for="group in visibleLists" :key="group.key" :label="group.label" :name="group.key">
-          <p v-if="group.key === 'external'" class="external-tip">你可以审核等级低于你的外部成员提交的作业。审核完成后，仅审核人可以在这里查看记录。</p>
-          <div v-loading="group.loading" class="submissions-panel" :aria-busy="group.loading">
-            <p v-if="group.failed" class="submissions-empty" role="alert">
-              提交记录加载失败。<el-button text type="primary" @click="loadSubmissions(group)">重试</el-button>
+          <p v-if="group.key === 'external'" class="external-tip">你可以审核等级低于你的外部成员提交的作业。已审核列表保留你的处理记录。</p>
+          <ReviewQueueSwitch v-if="group.queue" v-model="group.queue.mode" :total="group.list.total"
+                             :busy="group.list.loading || group.list.failed" @change="loadSubmissionPage(group.list)" />
+          <div v-loading="group.list.loading" class="submissions-panel" :aria-busy="group.list.loading">
+            <p v-if="group.list.failed" class="submissions-empty" role="alert">
+              提交记录加载失败。<el-button text type="primary" @click="loadSubmissionPage(group.list)">重试</el-button>
             </p>
-            <template v-else-if="group.rows.length">
+            <template v-else-if="group.list.rows.length">
               <table class="submissions-table" :aria-label="group.label">
                 <thead><tr>
                   <th scope="col">任务</th>
                   <th v-if="group.key !== 'my'" scope="col">提交人</th>
                   <th scope="col">状态</th>
-                  <th scope="col">提交时间</th>
+                  <th scope="col">{{ group.queue?.mode === 'reviewed' ? '审核时间' : '提交时间' }}</th>
                   <th v-if="group.key === 'my'" scope="col">反馈</th>
                   <th scope="col">操作</th>
                 </tr></thead>
                 <tbody>
-                  <tr v-for="row in group.rows" :key="row.id">
+                  <tr v-for="row in group.list.rows" :key="row.id">
                     <td class="submission-title">{{ row.taskTitle }}</td>
                     <td v-if="group.key !== 'my'" class="submission-author">{{ row.name || row.username }} <small>提交 #{{ row.id }}</small></td>
                     <td class="submission-status"><span class="status-tag" :class="row.status?.toLowerCase()">{{ submissionStatusText(row.status) }}</span></td>
-                    <td class="submission-date">{{ formatTime(row.submittedAt) }}</td>
+                    <td class="submission-date">{{ formatTime(group.queue?.mode === 'reviewed' ? row.reviewedAt : row.submittedAt) }}</td>
                     <td v-if="group.key === 'my'" class="submission-feedback" :class="{ 'has-feedback': row.reviewComment || row.aiFeedback }">
                       <p v-if="row.reviewComment">审核评语：{{ row.reviewComment }}</p>
                       <p v-if="row.aiFeedback">AI 反馈：{{ row.aiFeedback }}</p>
                       <span v-if="!row.reviewComment && !row.aiFeedback">—</span>
                     </td>
                     <td class="submission-action">
-                      <el-button size="small" type="primary" text @click="openReview(row)">{{ group.key !== 'my' && awaitingReview(row.status) ? '审核' : '查看' }}</el-button>
+                      <el-button size="small" type="primary" text @click="openReview(row.id, group.key)">{{ group.list.queue === 'pending' ? '审核' : '查看' }}</el-button>
                     </td>
                   </tr>
                 </tbody>
               </table>
-              <el-pagination v-if="group.total > 10" class="submission-pages" :current-page="group.page"
-                             :page-size="10" :total="group.total" :pager-count="5" layout="prev, pager, next"
-                             @current-change="page => loadSubmissions(group, page)" background small />
+              <el-pagination v-if="group.list.total > submissionPageSize" class="submission-pages" :current-page="group.list.page"
+                             :page-size="submissionPageSize" :total="group.list.total" :pager-count="5" layout="prev, pager, next"
+                             @current-change="page => loadSubmissionPage(group.list, page)" background small />
             </template>
-            <p v-else-if="!group.loading" class="submissions-empty">{{ group.empty }}</p>
+            <p v-else-if="!group.list.loading" class="submissions-empty">{{ group.empty }}</p>
           </div>
         </el-tab-pane>
       </el-tabs>
     </section>
 
     <!-- Review Dialog -->
-    <el-dialog v-model="reviewVisible" :title="awaitingReview(reviewSub?.status) && !isOwnSubmission && subTab !== 'my' ? '审核提交' : '提交详情'" width="min(800px, calc(100% - 24px))" top="3vh">
+    <el-dialog v-model="reviewVisible" :title="canReview ? '审核提交' : '提交详情'" width="min(800px, calc(100% - 24px))" top="3vh">
+      <p v-if="reviewLoading" class="submissions-empty" role="status">正在加载提交详情…</p>
+      <p v-else-if="reviewError" class="submissions-empty" role="alert">
+        {{ reviewError }} <el-button text type="primary" @click="openReview(reviewID, reviewGroup)">重试</el-button>
+      </p>
       <div v-if="reviewSub" class="review-detail">
         <el-descriptions :column="2" border size="small">
           <el-descriptions-item label="提交 ID">{{ reviewSub.id }}</el-descriptions-item>
@@ -265,12 +270,12 @@
           <div class="sub-section-title">审核评语</div>
           <p>{{ reviewSub.reviewComment }}</p>
         </div>
-        <div class="sub-section" v-if="!isOwnSubmission && awaitingReview(reviewSub.status)">
+        <div class="sub-section" v-if="canReview">
           <div class="sub-section-title">审核操作</div>
           <div class="sub-actions">
-            <el-input v-model="reviewComment" placeholder="评语" size="small" style="width:200px" />
-            <el-button type="success" size="small" @click="doReview('approved')" :loading="reviewing">通过</el-button>
-            <el-button type="danger" size="small" @click="doReview('rejected')" :loading="reviewing">拒绝</el-button>
+            <el-input v-model="reviewComment" aria-label="审核评语" placeholder="评语" size="small" style="width:200px" />
+            <el-button type="success" size="small" @click="doReview('approved')" :disabled="reviewing">通过</el-button>
+            <el-button type="danger" size="small" @click="doReview('rejected')" :disabled="reviewing">拒绝</el-button>
           </div>
         </div>
       </div>
@@ -280,12 +285,16 @@
 
 <script setup>
 import { submissionStatusText, awaitingReview } from '../submissionStatus'
-import { ref, reactive, onMounted, computed } from 'vue'
+import { submissionPage, reviewPages, loadSubmissionPage, submissionPageSize } from '../submissionPages'
+import { ref, onMounted, computed, watch } from 'vue'
+import ReviewQueueSwitch from '../components/ReviewQueueSwitch.vue'
 import { mentorshipApi } from '../api/mentorship'
 import { skillsApi } from '../api/skills'
 import { tasksApi } from '../api/tasks'
 import { useAuthStore } from '../store/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import 'element-plus/es/components/message/style/css'
+import 'element-plus/es/components/message-box/style/css'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 
@@ -314,13 +323,19 @@ const searchResults = ref([])
 const subTab = ref('my')
 const isInternal = computed(() => ['INTERNAL', 'TEACHER', 'SUPERADMIN'].includes(authStore.user?.role))
 const isExternal = computed(() => authStore.user?.role === 'EXTERNAL')
-function submissionList(key, label, empty, fetch) {
-  return reactive({ key, label, empty, fetch, rows: [], page: 1, total: 0, loading: false, failed: false, request: 0 })
+const canApplyForMentor = computed(() => authStore.user?.role === 'INTERNAL')
+function reviewGroupFor(key, label, fetch) {
+  const queue = reviewPages(fetch)
+  return {
+    key, label, queue,
+    get list() { return queue.current },
+    get empty() { return queue.mode === 'pending' ? '暂无待审核的提交' : '暂无已审核的提交' }
+  }
 }
 const submissionLists = {
-  my: submissionList('my', '我的提交', '暂无提交记录', tasksApi.mySubmissions),
-  apprentice: submissionList('apprentice', '徒弟提交', '暂无徒弟提交', tasksApi.apprenticeSubmissions),
-  external: submissionList('external', '外部成员提交', '暂无外部成员提交', tasksApi.externalSubmissions)
+  my: { key: 'my', label: '我的提交', empty: '暂无提交记录', list: submissionPage(tasksApi.mySubmissions) },
+  apprentice: reviewGroupFor('apprentice', '徒弟提交', tasksApi.apprenticeSubmissions),
+  external: reviewGroupFor('external', '外部成员提交', tasksApi.externalSubmissions)
 }
 const visibleLists = computed(() => {
   const lists = [submissionLists.my]
@@ -441,17 +456,22 @@ function taskTooltip(task) {
 // Review
 const reviewVisible = ref(false)
 const reviewSub = ref(null)
+const reviewID = ref(null)
+const reviewGroup = ref(null)
+const reviewLoading = ref(false)
+const reviewError = ref('')
 const reviewComment = ref('')
 const reviewing = ref(false)
+let reviewRequest = 0
 
 const reviewMdHtml = computed(() => {
   if (!reviewSub.value?.submissionData) return ''
   return DOMPurify.sanitize(marked.parse(reviewSub.value.submissionData))
 })
 
-/** 徒弟自己查看自己的提交时，隐藏审核操作 */
-const isOwnSubmission = computed(() =>
-  !!authStore.user?.id && reviewSub.value?.userId === authStore.user.id
+const canReview = computed(() =>
+  reviewGroup.value !== 'my' && awaitingReview(reviewSub.value?.status) &&
+  reviewSub.value.userId !== authStore.user?.id
 )
 
 function roleText(r) { return { SUPERADMIN: '超级管理员', TEACHER:'教师',INTERNAL:'内部',EXTERNAL:'游客' }[r]||r }
@@ -470,10 +490,6 @@ function formatTime(ts) {
   if (!ts) return '-'
   const d = new Date(ts)
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0')
-}
-
-function onSubTabChange(key) {
-  loadSubmissions(submissionLists[key])
 }
 
 function startTimelineDrag(event) {
@@ -496,30 +512,21 @@ function stopTimelineDrag(event) {
 }
 
 // ---- Search users ----
-let searchTimer = null
-function searchUsers(query) {
-  if (!query) { searchResults.value = []; return }
-  clearTimeout(searchTimer)
-  searchTimer = setTimeout(async () => {
-    searchLoading.value = true
-    try {
-      const res = await mentorshipApi.searchUsers(query)
-      const me = authStore.user
-      const apprenticeIds = new Set(apprentices.value.map(a => a.userId))
-      const mentorIds = new Set(mentors.value.map(m => m.userId))
-      const sentTargetIds = new Set(sentRequests.value.map(s => s.userId))
-      const pendingTargetIds = new Set(pending.value.map(p => p.userId))
-      // 过滤：自己、自己的徒弟、已是自己师傅的人、已发过申请/对方待审批的人，不显示拜师按钮
-      searchResults.value = (res.data.data || []).filter(u => {
-        if (me && u.id === me.id) return false
-        if (apprenticeIds.has(u.id)) return false
-        if (mentorIds.has(u.id)) return false
-        if (sentTargetIds.has(u.id)) return false
-        if (pendingTargetIds.has(u.id)) return false
-        return true
-      })
-    } catch (e) { searchResults.value = [] } finally { searchLoading.value = false }
-  }, 200)
+let latestSearch = 0
+async function searchUsers(query) {
+  const request = ++latestSearch
+  searchResults.value = []
+  const keyword = query.trim()
+  searchLoading.value = !!keyword
+  if (!keyword) return
+  try {
+    const { data } = await mentorshipApi.searchUsers(keyword)
+    if (request === latestSearch) searchResults.value = data.data || []
+  } catch {
+    if (request === latestSearch) ElMessage.error('暂时无法搜索，请稍后再试')
+  } finally {
+    if (request === latestSearch) searchLoading.value = false
+  }
 }
 
 // ---- Fetch ----
@@ -545,41 +552,30 @@ async function fetchTimeline() {
   }
 }
 
-async function loadSubmissions(group, page = group.page) {
-  const request = ++group.request
-  group.page = page
-  group.loading = true
-  group.failed = false
-  try {
-    const res = await group.fetch(page - 1, 10)
-    if (request !== group.request) return
-    const { content, total } = res.data.data
-    const lastPage = Math.max(1, Math.ceil(total / 10))
-    if (page > lastPage) return loadSubmissions(group, lastPage)
-    group.rows = content
-    group.total = total
-  } catch {
-    if (request === group.request) group.failed = true
-  } finally {
-    if (request === group.request) group.loading = false
-  }
-}
-
 // ---- Mentor request ----
 async function requestMentor() {
-  if (!mentorId.value) return
+  if (!mentorId.value || requestLoading.value) return
+  const id = mentorId.value
   requestLoading.value = true
   try {
-    await mentorshipApi.request(mentorId.value)
+    await mentorshipApi.request(id)
+    searchResults.value = searchResults.value.filter(user => user.id !== id)
     ElMessage.success('申请已发送')
     mentorId.value = null
+    await fetchData()
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '申请失败')
   } finally { requestLoading.value = false }
 }
 
 async function approveRequest(id) {
-  try { await mentorshipApi.approve(id); ElMessage.success('已通过'); fetchData() } catch (e) { ElMessage.error('操作失败') }
+  try {
+    await mentorshipApi.approve(id)
+    ElMessage.success('已通过')
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '操作失败')
+  }
+  await fetchData()
 }
 async function rejectRequest(id) {
   try { await mentorshipApi.reject(id); ElMessage.success('已拒绝'); fetchData() } catch (e) { ElMessage.error('操作失败') }
@@ -646,39 +642,53 @@ function fallbackCopy(text, ok) {
 }
 
 // ---- Review ----
-async function openReview(row) {
+async function openReview(id, group) {
+  const request = ++reviewRequest
+  reviewID.value = id
+  reviewGroup.value = group
   reviewVisible.value = true
+  reviewLoading.value = true
+  reviewError.value = ''
   reviewSub.value = null
   reviewComment.value = ''
   try {
-    const res = await tasksApi.submissionDetail(row.id)
-    reviewSub.value = res.data.data
+    const res = await tasksApi.submissionDetail(id)
+    if (request === reviewRequest && reviewVisible.value) reviewSub.value = res.data.data
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || '加载详情失败')
+    if (request === reviewRequest) reviewError.value = e.response?.data?.message || '加载详情失败'
+  } finally {
+    if (request === reviewRequest) reviewLoading.value = false
   }
 }
 
 async function doReview(status) {
+  if (reviewing.value || !canReview.value) return
+  const id = reviewSub.value.id
+  const group = submissionLists[reviewGroup.value]
   reviewing.value = true
   try {
-    await tasksApi.review(reviewSub.value.id, { status, reviewComment: reviewComment.value || undefined })
+    await tasksApi.review(id, { status, reviewComment: reviewComment.value || undefined })
     ElMessage.success(status === 'approved' ? '已通过' : '已拒绝')
-    reviewVisible.value = false
-    await loadSubmissions(submissionLists[subTab.value])
-    if (subTab.value === 'apprentice') await fetchData()
+    if (id === reviewID.value) reviewVisible.value = false
+    await loadSubmissionPage(group.queue.pending)
+    if (group.key === 'apprentice') await fetchData()
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '审核失败')
   } finally { reviewing.value = false }
 }
 
+watch(subTab, key => { loadSubmissionPage(submissionLists[key].list) })
+
 onMounted(async () => {
-  await Promise.all([fetchData(), loadSubmissions(submissionLists.my)])
-  if (apprentices.value.length) {
-    await loadSubmissions(submissionLists.apprentice)
-    if (subTab.value === 'my' && submissionLists.apprentice.rows.some(row => awaitingReview(row.status))) {
-      subTab.value = 'apprentice'
-    }
+  if (isExternal.value) {
+    await Promise.all([fetchData(), loadSubmissionPage(submissionLists.my.list)])
+    return
   }
+  await fetchData()
+  if (subTab.value !== 'my') return
+  if (apprentices.value.length) subTab.value = 'apprentice'
+  else if (authStore.isTeacher || authStore.isSuperAdmin) subTab.value = 'external'
+  else await loadSubmissionPage(submissionLists.my.list)
 })
 </script>
 

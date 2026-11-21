@@ -2,7 +2,7 @@
   <div class="page map-board">
     <div class="page-title-row">
       <div>
-        <h1 class="page-title">章节手册</h1>
+        <h1 class="page-title">章节目录</h1>
         <p class="page-subtitle">{{ maps.length }} 个章节 · {{ store.totalLevels }} 个关卡</p>
       </div>
       <div class="xp-chip">
@@ -18,7 +18,7 @@
     <div class="section-card global-progress">
       <div class="gp-row">
         <div class="gp-info">
-          <span class="gp-label">冒险进度</span>
+          <span class="gp-label">项目进度</span>
           <span class="gp-value">{{ store.completedLevels }} / {{ store.totalLevels }} 关</span>
         </div>
         <div class="gp-current" v-if="store.currentMap">当前章节 · {{ store.currentMap }}</div>
@@ -29,7 +29,7 @@
 
     <!-- 章节时间轴 -->
     <div class="story-timeline" v-loading="loading">
-      <div v-for="(map, mi) in maps" :key="map.id" class="tl-chapter"
+      <div v-for="map in maps" :key="map.id" class="tl-chapter"
            :id="'chapter-' + map.id"
            :class="[{ current: map.status === 'IN_PROGRESS' }, map.status.toLowerCase()]">
         <div class="tl-node" :class="map.status.toLowerCase()">{{ chapterNodeIcon(map) }}</div>
@@ -37,7 +37,7 @@
         <div class="tl-chapter-card" :class="{ locked: map.status === 'LOCKED' }">
           <div class="tl-chapter-head">
             <button type="button" class="tl-chapter-title-line" :aria-expanded="expandedId === map.id" @click="toggleChapter(map)">
-              <span class="tl-chapter-index">第 {{ mi + 1 }} 章</span>
+              <span class="tl-chapter-index">第 {{ map.chapterNumber }} 章</span>
               <span class="tl-chapter-name">{{ map.icon }} {{ map.name }}</span>
               <span class="tl-status" :class="map.status.toLowerCase()">
                 {{ map.status === 'COMPLETED' ? '已通关' : map.status === 'LOCKED' ? '未解锁' : '进行中' }}
@@ -110,6 +110,7 @@ import { useRouter } from 'vue-router'
 import { mapsApi } from '../api/maps'
 import { useMapStore } from '../store/map'
 import { ElMessage } from 'element-plus'
+import 'element-plus/es/components/message/style/css'
 import TaskSubmitDialog from '../components/TaskSubmitDialog.vue'
 
 const router = useRouter()
@@ -178,7 +179,7 @@ function goLevel(lv) {
     ElMessage.warning('通关前一关卡后解锁')
     return
   }
-  router.push(`/level/${lv.id}?n=${lv.orderIndex}`)
+  router.push('/level/' + lv.id)
 }
 
 async function submitForLevel(lv) {

@@ -465,11 +465,25 @@ func (a *App) adminUserProfile(w http.ResponseWriter, r *http.Request, actor int
 	a.profile(w, r, id)
 }
 func (a *App) adminSubmissions(w http.ResponseWriter, r *http.Request, user int64) {
-	rows, err := a.DB.QueryContext(r.Context(), submissionSelect+` WHERE EXISTS(SELECT 1 FROM users reviewer WHERE reviewer.id=? AND reviewer.role='SUPERADMIN')
+	queue := r.URL.Query().Get("queue")
+	if !validSubmissionQueue(queue) {
+		bad(w, "审核队列无效")
+		return
+	}
+	where := `(EXISTS(SELECT 1 FROM users reviewer WHERE reviewer.id=? AND reviewer.role='SUPERADMIN')
 		OR s.reviewer_id=?
 		OR EXISTS(SELECT 1 FROM mentorships m WHERE m.mentor_id=? AND m.apprentice_id=s.user_id AND m.status='ACTIVE')
-		OR EXISTS(SELECT 1 FROM users reviewer WHERE reviewer.id=? AND u.role='EXTERNAL' AND COALESCE(reviewer.level,0)>COALESCE(u.level,0))
-		ORDER BY s.submitted_at DESC,s.id DESC LIMIT 5000`, user, user, user, user)
+		OR EXISTS(SELECT 1 FROM users reviewer WHERE reviewer.id=? AND u.role='EXTERNAL' AND COALESCE(reviewer.level,0)>COALESCE(u.level,0)))`
+	args := []any{user, user, user, user}
+	if queue != "" {
+		if queue == "pending" {
+			where += ` AND s.user_id<>?`
+			args = append(args, user)
+		}
+		a.writeSubmissionPage(w, r, where, args, queue)
+		return
+	}
+	rows, err := a.DB.QueryContext(r.Context(), submissionSelect+`WHERE `+where+submittedOrder+` LIMIT 5000`, args...)
 	if err != nil {
 		fail(w)
 		return

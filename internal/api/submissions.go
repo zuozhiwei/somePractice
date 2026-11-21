@@ -163,7 +163,15 @@ func (a *App) submissions(w http.ResponseWriter, r *http.Request, user int64) {
 		bad(w, "任务编号无效")
 		return
 	}
-	rows, err := a.DB.QueryContext(r.Context(), `SELECT s.id,s.task_id,s.user_id,s.submission_data,s.status,s.ai_feedback,s.review_comment,s.submitted_at,s.reviewed_at,COALESCE(t.title,''),u.username,u.name FROM user_task_submissions s LEFT JOIN tasks t ON t.id=s.task_id JOIN users u ON u.id=s.user_id WHERE s.user_id=? AND s.task_id=? ORDER BY s.submitted_at DESC,s.id DESC`, user, id)
+	limit := -1 // SQLite omits the upper bound for a negative limit.
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		limit, err = strconv.Atoi(raw)
+		if err != nil || limit < 1 {
+			bad(w, "提交记录数量无效")
+			return
+		}
+	}
+	rows, err := a.DB.QueryContext(r.Context(), `SELECT s.id,s.task_id,s.user_id,s.submission_data,s.status,s.ai_feedback,s.review_comment,s.submitted_at,s.reviewed_at,COALESCE(t.title,''),u.username,u.name FROM user_task_submissions s LEFT JOIN tasks t ON t.id=s.task_id JOIN users u ON u.id=s.user_id WHERE s.user_id=? AND s.task_id=? ORDER BY s.submitted_at DESC,s.id DESC LIMIT ?`, user, id, limit)
 	if err != nil {
 		fail(w)
 		return
